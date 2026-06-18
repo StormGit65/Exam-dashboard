@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kaizen Dashboard — Track mocks, scores, and daily goals">
+  <title>Kaizen — Dashboard</title>
+  <link rel="icon" type="image/svg+xml" href="/img/icon.svg">
+  <link rel="stylesheet" href="/css/styles.css?v=22">
+</head>
+
+<body>
+  <button class="mobile-toggle" id="mobileToggle"
+    onclick="document.querySelector('.sidebar').classList.toggle('open')">☰</button>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-header-content">
+          <img src="/img/icon.svg" alt="Kaizen" onclick="toggleSidebar()" style="cursor:pointer">
+          <div>
+            <div class="app-name">Kaizen</div>
+            <div class="exam-label" id="sidebarExamName">Loading...</div>
+          </div>
+        </div>
+        <button class="sidebar-toggle" onclick="toggleSidebar()">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-item" onclick="window.location.href='/'">
+          <svg viewBox="0 0 24 24">
+            <path d="M15 19l-7-7 7-7" />
+          </svg>
+          <div class="marquee-wrapper"><span>All Exams</span></div>
+        </div>
+
+        <div class="nav-item active" data-view="dashboard" onclick="switchView('dashboard')">
+          <svg viewBox="0 0 24 24">
+            <rect x="3" y="3" width="7" height="7" rx="1" />
+            <rect x="14" y="3" width="7" height="7" rx="1" />
+            <rect x="3" y="14" width="7" height="7" rx="1" />
+            <rect x="14" y="14" width="7" height="7" rx="1" />
+          </svg>
+          <div class="marquee-wrapper"><span>Dashboard</span></div>
+        </div>
+        <div class="nav-item" data-view="mocks" onclick="switchView('mocks')">
+          <svg viewBox="0 0 24 24">
+            <path
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          </svg>
+          <div class="marquee-wrapper"><span>Mock Tests</span></div>
+        </div>
+        <div class="nav-item" data-view="goals" onclick="switchView('goals')">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="9" />
+            <path d="M9 12l2 2 4-4" />
+          </svg>
+          <div class="marquee-wrapper"><span>Goals</span></div>
+        </div>
+      </nav>
+
+      <div class="sidebar-split-divider" id="sidebarSplitDivider">
+        <div class="sidebar-split-divider-line"></div>
+      </div>
+
+      <div class="sidebar-goals" id="sidebarGoals">
+        <h3>TODAY'S GOALS <span id="goalCount">0/0</span></h3>
+        <div id="goalList"></div>
+      </div>
+
+      <div class="sidebar-bottom-actions">
+        <button class="sidebar-action-btn" onclick="openMyDesk()">
+          <svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z" /><path d="M8 20h8" /><path d="M12 16v4" /></svg>
+          <span>My Desk</span>
+        </button>
+        <button class="sidebar-action-btn" id="themeToggle" onclick="toggleTheme()">
+          <svg id="themeIconSvg" viewBox="0 0 24 24">
+            <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" />
+          </svg>
+          <span id="themeIcon">Light Mode</span>
+        </button>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <!-- Dashboard View -->
+      <div class="view-container active" id="view-dashboard">
+        <div class="main-header">
+          <div class="header-row-top">
+            <div>
+              <h1 id="greeting">Dashboard</h1>
+              <div class="subtitle" id="examSubtitle">Track your preparation progress</div>
+            </div>
+            <div class="exam-badge" id="examBadge" onclick="openEditExamModal()" title="Click to edit exam details">
+              <span id="badgeExamName">—</span>
+              <span>·</span>
+              <span id="badgeDate">—</span>
+              <span>·</span>
+              <span class="countdown" id="badgeCountdown">—</span>
+            </div>
+          </div>
+          <div class="day-timeline" id="dayTimeline">
+            <div class="dt-track">
+              <div class="dt-night dt-night-left"></div>
+              <div class="dt-day"></div>
+              <div class="dt-night dt-night-right"></div>
+              <div class="dt-elapsed" id="dtElapsed"></div>
+              <div class="dt-dim" id="dtDim"></div>
+              <div class="dt-marker dt-sunrise" id="dtSunrise" title="Sunrise 6 AM">☀</div>
+              <div class="dt-marker dt-sunset" id="dtSunset" title="Sunset 6 PM">☾</div>
+              <div class="dt-now" id="dtNow">
+                <div class="dt-now-dot"></div>
+                <div class="dt-now-label" id="dtNowLabel">00:00</div>
+              </div>
+            </div>
+            <div class="dt-hours" id="dtHours"></div>
+          </div>
+        </div>
+
+        <div class="stats-grid" id="statsGrid">
+          <div class="stat-card">
+            <div class="stat-label">Attempted</div>
+            <div class="stat-value" id="statAttempted">0/0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Fully Done</div>
+            <div class="stat-value" id="statFullyDone">0/0</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Avg Score</div>
+            <div class="stat-value" id="statAvg">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Best Score</div>
+            <div class="stat-value" id="statBest">—</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Days Remaining</div>
+            <div class="stat-value" id="statDays">—</div>
+          </div>
+        </div>
+
+        <div class="chart-section">
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <h3>Score Progression</h3>
+              <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;">
+                <div class="chart-mode-tabs">
+                  <button class="chart-mode-btn active" data-mode="total" onclick="setChartMode('total')">Total</button>
+                  <button class="chart-mode-btn" data-mode="percent" onclick="setChartMode('percent')">%</button>
+                  <button class="chart-mode-btn" data-mode="sections" onclick="setChartMode('sections')">Sections</button>
+                </div>
+                <div id="chartOverlayBtns" style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;"></div>
+              </div>
+            </div>
+            <div class="chart-canvas-wrap">
+              <canvas id="scoreChart"></canvas>
+              <div class="chart-tooltip" id="chartTooltip" style="display:none;"></div>
+            </div>
+          </div>
+          <div class="progress-card" id="progressCard">
+            <h3>Mock Progress</h3>
+            <div id="progressBars"></div>
+            <div class="section-accuracy-chart" id="sectionAccuracyChart" style="display:none;">
+              <h3 style="margin-top:16px;">Section Accuracy</h3>
+              <canvas id="sectionAccuracyCanvas"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mocks View -->
+      <div class="view-container" id="view-mocks">
+        <div class="mocks-header">
+          <div>
+            <h2>Mock Tests</h2>
+          </div>
+          <div style="display:flex;gap:8px;">
+            <button class="btn btn-secondary btn-sm" onclick="openSectionPanel()">Exam Sections</button>
+            <button class="btn btn-danger btn-sm" onclick="openClearMocksModal()">Clear Mocks</button>
+            <button class="btn btn-primary" onclick="openAddMockModal()">+ Add Mock</button>
+          </div>
+        </div>
+        <!-- Exam Time Range Info Bar -->
+        <div class="mock-time-range-bar" id="mockTimeRangeBar" style="display:none;">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          <span>Exam Window: <strong id="mockTimeRangeText">—</strong></span>
+        </div>
+        <div class="mock-stats-row" id="mockStatsRow"></div>
+        <!-- Section Performance Panel (collapsible) -->
+        <div class="section-perf-panel" id="sectionPerfPanel" style="display:none;">
+          <div class="section-perf-header" onclick="toggleSectionPerf()">
+            <svg class="section-perf-chevron" id="sectionPerfChevron" viewBox="0 0 24 24" width="14" height="14"><path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>Section Performance</span>
+          </div>
+          <div class="section-perf-body" id="sectionPerfBody"></div>
+        </div>
+        <div class="mocks-grid" id="mocksGrid"></div>
+      </div>
+
+      <!-- Goals View -->
+      <div class="view-container" id="view-goals">
+        <!-- Day Timeline -->
+        <div class="goals-header-bar">
+          <div class="goals-header-left">
+            <h2>Goals & Journal</h2>
+            <div class="subtitle">Track tasks and log your daily accomplishments</div>
+          </div>
+        </div>
+        <!-- Floating Docs Button -->
+        <button class="goals-docs-fab" id="goalsDocsPanelToggle" onclick="toggleDocsPanel()" title="Documents & Media">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          Docs
+        </button>
+
+        <div class="goals-timeline" id="goalsTimeline">
+          <div class="dt-track">
+            <div class="dt-night dt-night-left"></div>
+            <div class="dt-day"></div>
+            <div class="dt-night dt-night-right"></div>
+            <div class="dt-elapsed" id="goalsDtElapsed"></div>
+            <div class="dt-dim" id="goalsDtDim"></div>
+            <div class="dt-marker dt-sunrise" title="Sunrise 6 AM">☀</div>
+            <div class="dt-marker dt-sunset" title="Sunset 6 PM">☾</div>
+            <div class="dt-now" id="goalsDtNow">
+              <div class="dt-now-dot" id="goalsDtDot"></div>
+              <div class="dt-now-label" id="goalsDtLabel">00:00</div>
+            </div>
+          </div>
+          <div class="dt-hours" id="goalsDtHours"></div>
+        </div>
+
+        <div class="goals-page-layout">
+          <!-- Main Content Area -->
+          <div class="goals-main">
+            <!-- Calendar Header -->
+            <div class="cal-header">
+              <div class="cal-nav">
+                <button class="cal-nav-btn" id="calPrev" onclick="calNavigate(-1)">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M15 18l-6-6 6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <h3 class="cal-title" id="calTitle">April 2026</h3>
+                <button class="cal-nav-btn" id="calNext" onclick="calNavigate(1)">
+                  <svg viewBox="0 0 24 24" width="18" height="18"><path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                </button>
+                <button class="cal-today-btn" onclick="calGoToday()">Today</button>
+                <div class="cal-exam-jumps" id="calExamJumps"></div>
+              </div>
+              <div class="cal-view-tabs">
+                <button class="cal-tab" data-view="month" onclick="calSwitchView('month')">Month</button>
+                <button class="cal-tab active" data-view="week" onclick="calSwitchView('week')">Week</button>
+              </div>
+            </div>
+
+            <!-- Calendar Grid -->
+            <div class="cal-grid-wrap" id="calGridWrap">
+              <div class="cal-grid" id="calGrid"></div>
+            </div>
+
+            <!-- Selected Day Tasks -->
+            <div class="tasks-panel" id="tasksPanel">
+              <div class="tasks-panel-header">
+                <h3 id="tasksPanelDate">Today's Tasks</h3>
+                <div class="tasks-panel-actions">
+                  <button class="btn btn-primary btn-sm" onclick="openAddTaskDialog()">+ Add Task</button>
+                  <button class="btn btn-secondary btn-sm" style="display:flex;align-items:center;gap:4px;" onclick="openEntryEditor()">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                    Log Entry
+                  </button>
+                </div>
+              </div>
+
+              <!-- Add Task Input (hidden by default) -->
+              <div class="task-add-row" id="taskAddRow" style="display:none;">
+                <input type="text" id="taskAddInput" placeholder="What needs to be done?" onkeydown="if(event.key==='Enter')submitNewTask()">
+                <div class="time-range-group">
+                  <div class="time-picker-group">
+                    <select id="taskAddHour" class="time-select"><option value="">HH</option></select>
+                    <span class="time-colon">:</span>
+                    <select id="taskAddMin" class="time-select"><option value="">MM</option></select>
+                  </div>
+                  <span class="time-range-dash">→</span>
+                  <div class="time-picker-group">
+                    <select id="taskAddEndHour" class="time-select"><option value="">HH</option></select>
+                    <span class="time-colon">:</span>
+                    <select id="taskAddEndMin" class="time-select"><option value="">MM</option></select>
+                  </div>
+                </div>
+                <button class="btn btn-primary btn-sm" onclick="submitNewTask()">Add</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeAddTaskDialog()">✕</button>
+              </div>
+
+              <!-- Pending Tasks -->
+              <div class="task-group" id="taskGroupPending">
+                <div class="task-group-header" onclick="toggleTaskGroup('pending')">
+                  <svg class="task-group-chevron" viewBox="0 0 24 24" width="14" height="14"><path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>Pending</span>
+                  <span class="task-group-count" id="pendingCount">0</span>
+                </div>
+                <div class="task-group-body" id="pendingTaskList"></div>
+              </div>
+
+              <!-- Completed Tasks -->
+              <div class="task-group collapsed" id="taskGroupCompleted">
+                <div class="task-group-header" onclick="toggleTaskGroup('completed')">
+                  <svg class="task-group-chevron" viewBox="0 0 24 24" width="14" height="14"><path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>Completed</span>
+                  <span class="task-group-count" id="completedCount">0</span>
+                </div>
+                <div class="task-group-body" id="completedTaskList"></div>
+              </div>
+
+              <!-- Completed Entries (journal) -->
+              <div class="entries-section collapsed" id="entriesSection">
+                <div class="task-group-header" onclick="toggleTaskGroup('entries')">
+                  <svg class="task-group-chevron" viewBox="0 0 24 24" width="14" height="14"><path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                  <span>Journal Entries</span>
+                  <span class="task-group-count" id="entriesCount">0</span>
+                </div>
+                <div class="task-group-body" id="entriesList"></div>
+              </div>
+            </div>
+
+            <!-- Editor moved to modal below -->
+          </div>
+
+          <!-- Docs Panel Sidebar (collapsible) -->
+          <div class="docs-panel" id="docsPanel">
+            <div class="docs-panel-header">
+              <h3>Documents & Media</h3>
+              <button class="docs-panel-close" onclick="toggleDocsPanel()">
+                <svg viewBox="0 0 24 24" width="16" height="16"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg>
+              </button>
+            </div>
+            <div class="docs-panel-body" id="docsPanelBody">
+              <div class="docs-group" id="docsImages">
+                <div class="docs-group-title">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                  Images
+                </div>
+                <div class="docs-group-items" id="docsImagesList"></div>
+              </div>
+              <div class="docs-group" id="docsDocuments">
+                <div class="docs-group-title">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  Documents
+                </div>
+                <div class="docs-group-items" id="docsDocsList"></div>
+              </div>
+              <div class="docs-group" id="docsLinks">
+                <div class="docs-group-title">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+                  Links
+                </div>
+                <div class="docs-group-items" id="docsLinksList"></div>
+              </div>
+              <div class="docs-group" id="docsAudio">
+                <div class="docs-group-title">
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+                  Audio
+                </div>
+                <div class="docs-group-items" id="docsAudioList"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden file inputs -->
+        <input type="file" id="imageFileInput" accept="image/*" style="display:none" onchange="handleFileUpload(this, 'image')">
+        <input type="file" id="audioFileInput" accept="audio/*" style="display:none" onchange="handleFileUpload(this, 'audio')">
+        <input type="file" id="docFileInput" accept=".pdf,.doc,.docx,.txt,.xlsx,.csv,.pptx" style="display:none" onchange="handleFileUpload(this, 'document')">
+
+        <!-- Entry Editor Modal -->
+        <div class="modal-overlay" id="entryEditorModal">
+          <div class="modal entry-editor-modal">
+            <div class="entry-editor-header">
+              <input type="text" class="entry-title-input" id="entryTitleInput" value="Today I completed..." placeholder="Entry title...">
+              <button class="entry-close-btn" onclick="closeEntryEditor()"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round"/></svg></button>
+            </div>
+            <div class="entry-toolbar">
+              <div class="toolbar-group"><select class="toolbar-heading-select" id="headingSelect" onchange="execHeading(this.value)"><option value="">Normal</option><option value="H1">Heading 1</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option></select></div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="execFormat('bold')" title="Bold"><strong>B</strong></button>
+                <button class="toolbar-btn" onclick="execFormat('italic')" title="Italic"><em>I</em></button>
+                <button class="toolbar-btn" onclick="execFormat('strikeThrough')" title="Strikethrough"><s>S</s></button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                <div class="toolbar-color-wrapper">
+                  <button class="toolbar-btn" id="fontColorBtn" onclick="toggleColorPicker('fontColor')" title="Font Color"><span style="border-bottom:3px solid #ef4444;padding-bottom:1px;font-weight:700;font-size:.82rem;">A</span></button>
+                  <div class="color-picker-panel" id="fontColorPanel">
+                    <div class="color-picker-grid" id="fontColorGrid"></div>
+                    <button class="color-picker-clear" onclick="execFontColor('');closeColorPickers()">Reset Color</button>
+                  </div>
+                </div>
+                <div class="toolbar-color-wrapper">
+                  <button class="toolbar-btn" id="highlightBtn" onclick="toggleColorPicker('highlight')" title="Highlight"><span style="background:#fde047;color:#000;padding:0 4px;border-radius:2px;font-weight:700;font-size:.78rem;">H</span></button>
+                  <div class="color-picker-panel" id="highlightPanel">
+                    <div class="color-picker-grid" id="highlightGrid"></div>
+                    <button class="color-picker-clear" onclick="execHighlight('');closeColorPickers()">Remove Highlight</button>
+                  </div>
+                </div>
+                <div class="toolbar-color-wrapper">
+                  <button class="toolbar-btn" id="pageColorBtn" onclick="toggleColorPicker('pageColor')" title="Page Color"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+                  <div class="color-picker-panel" id="pageColorPanel">
+                    <div class="color-picker-grid" id="pageColorGrid"></div>
+                    <button class="color-picker-clear" onclick="execPageColor('');closeColorPickers()">Reset to Default</button>
+                  </div>
+                </div>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="execFormat('insertUnorderedList')" title="Bullet List"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg></button>
+                <button class="toolbar-btn" onclick="execFormat('insertOrderedList')" title="Numbered List"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/></svg></button>
+              </div>
+              <div class="toolbar-divider"></div>
+              <div class="toolbar-group">
+                <button class="toolbar-btn" onclick="insertLink()" title="Link"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></button>
+                <button class="toolbar-btn" onclick="insertImage()" title="Image"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+                <button class="toolbar-btn" onclick="insertAudio()" title="Audio"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+                <button class="toolbar-btn" onclick="insertDocument()" title="Doc"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></button>
+                <div class="divider-picker-wrapper">
+                  <button class="toolbar-btn" onclick="toggleDividerPicker()" title="Divider Line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="8" y2="6"/><line x1="3" y1="18" x2="8" y2="18"/></svg></button>
+                  <div class="divider-picker-panel" id="dividerPickerPanel"></div>
+                </div>
+              </div>
+            </div>
+            <div class="entry-body" id="entryBody" contenteditable="true" data-placeholder="Start writing what you accomplished today..."></div>
+            <div class="entry-editor-footer">
+              <button class="btn btn-primary" onclick="saveEntry()">Save Entry</button>
+              <button class="btn btn-secondary" onclick="closeEntryEditor()">Discard</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Link Insert Modal -->
+        <div class="modal-overlay" id="linkModal">
+          <div class="modal" style="max-width:380px;">
+            <h2>Insert Link</h2>
+            <div class="form-group"><label>URL</label><input type="url" id="linkUrlInput" placeholder="https://example.com"></div>
+            <div class="form-group"><label>Display Text (optional)</label><input type="text" id="linkTextInput" placeholder="Click here"></div>
+            <div class="form-group">
+              <label>Box Color</label>
+              <div id="linkBoxColorGrid" style="display:flex; gap: 6px; margin-top: 5px; flex-wrap: wrap;"></div>
+              <input type="hidden" id="linkBoxColorInput" value="var(--info)">
+            </div>
+            <div class="form-group" style="display:flex;align-items:center;gap:10px;">
+              <label class="task-checkbox" style="margin:0;">
+                <input type="checkbox" id="linkEmbedCheck">
+                <span class="checkmark"></span>
+              </label>
+              <label for="linkEmbedCheck" style="margin:0;text-transform:none;letter-spacing:0;font-size:.88rem;cursor:pointer;color:var(--text-secondary);transition:color 0.2s;" onmouseover="this.style.color='var(--text-primary)'" onmouseout="this.style.color='var(--text-secondary)'">Show as embedded preview</label>
+            </div>
+            <div class="form-actions"><button class="btn btn-secondary" onclick="closeLinkModal()">Cancel</button><button class="btn btn-primary" onclick="confirmInsertLink()">Insert</button></div>
+          </div>
+        </div>
+
+        <!-- Delete Entry Confirmation Modal -->
+        <div class="modal-overlay" id="deleteEntryModal">
+          <div class="modal" style="max-width:360px;">
+            <h2>Delete Entry</h2>
+            <p style="color:var(--text-secondary);font-size:.88rem;">Are you sure you want to delete this journal entry? This action cannot be undone.</p>
+            <div class="form-actions">
+              <button class="btn btn-secondary" onclick="closeDeleteEntryModal()">Cancel</button>
+              <button class="btn btn-danger" onclick="confirmDeleteEntry()">Delete</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Edit Exam Modal -->
+  <div class="modal-overlay" id="editExamModal">
+    <div class="modal">
+      <h2>Edit Exam</h2>
+      <div class="form-group"><label>Exam Name</label><input type="text" id="editExamName"></div>
+      <div class="form-group"><label>Exam Date</label><input type="date" id="editExamDate" onclick="this.showPicker()"></div>
+      <div class="form-group">
+        <label>Exam Timing (Optional)</label>
+        <div class="time-range-group" style="display: flex; align-items: center; gap: 8px;">
+          <div class="time-picker-group">
+            <select id="editExamStartHour" class="time-select"><option value="">HH</option></select>
+            <span class="time-colon">:</span>
+            <select id="editExamStartMin" class="time-select"><option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option></select>
+            <select id="editExamStartPeriod" class="time-select period-select"><option value="AM">AM</option><option value="PM">PM</option></select>
+          </div>
+          <span style="color:var(--text-secondary);font-size:0.8rem;font-weight:600;">to</span>
+          <div class="time-picker-group">
+            <select id="editExamEndHour" class="time-select"><option value="">HH</option></select>
+            <span class="time-colon">:</span>
+            <select id="editExamEndMin" class="time-select"><option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option></select>
+            <select id="editExamEndPeriod" class="time-select period-select"><option value="AM">AM</option><option value="PM">PM</option></select>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label>Accent Color</label><input type="color" id="editExamColor"
+          style="height:40px;padding:4px;"></div>
+      <div class="form-group" id="editGroupWrap">
+        <label>Archive Group</label>
+        <div class="group-select-row">
+          <select id="editExamGroup">
+            <option value="">— Same as Exam Name —</option>
+          </select>
+          <input type="text" id="editExamGroupCustom" placeholder="New group name..." style="display:none;">
+        </div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">This determines which group the exam falls
+          into when archived.</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeEditExamModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditExam()">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Score Entry Modal -->
+  <div class="modal-overlay" id="scoreModal">
+    <div class="modal score-modal">
+      <h2>Log Score</h2>
+      <div id="scoreModalBody"></div>
+      <div class="score-total-row" id="scoreTotalRow" style="display:none;">Total: <span id="scoreTotalVal">0</span>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeScoreModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveScoreModal()">Save Score</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section Builder Panel -->
+  <div class="section-panel-overlay" id="sectionPanelOverlay" onclick="closeSectionPanel()"></div>
+  <div class="section-panel" id="sectionPanel">
+    <div class="section-panel-header">
+      <h3>Exam Sections</h3>
+      <button class="sidebar-toggle" onclick="closeSectionPanel()">
+        <svg viewBox="0 0 24 24" width="18" height="18">
+          <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </button>
+    </div>
+    <div class="section-panel-body" id="sectionPanelBody"></div>
+    <div class="section-panel-footer">
+      <button class="btn btn-secondary btn-sm" onclick="addSectionRow()" style="width:100%;margin-bottom:8px;">+ Add
+        Section</button>
+      <button class="btn btn-primary" onclick="saveSections()" style="width:100%;">Save Sections</button>
+    </div>
+  </div>
+
+  <!-- Clear Mocks Confirm Modal -->
+  <div class="modal-overlay" id="clearMocksModal">
+    <div class="modal confirm-dialog">
+      <h2>Clear All Mocks</h2>
+      <p style="color:var(--danger)">Are you sure you want to delete ALL mocks and their data? This action cannot be
+        undone.</p>
+      <div class="form-actions" style="justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeClearMocksModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="clearAllMocks()">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Mock Confirm Modal -->
+  <div class="modal-overlay" id="deleteMockModal">
+    <div class="modal confirm-dialog">
+      <h2>Delete Mock</h2>
+      <p style="color:var(--text-secondary);font-size:.88rem;">Are you sure you want to delete <strong id="deleteMockName"></strong>? This action cannot be undone.</p>
+      <div class="form-actions" style="justify-content:center;">
+        <button class="btn btn-secondary" onclick="closeDeleteMockModal()">Cancel</button>
+        <button class="btn btn-danger" onclick="confirmDeleteMock()">Delete</button>
+      </div>
+    </div>
+  </div>
+  <!-- Add Mock Modal -->
+  <div class="modal-overlay" id="addMockModal">
+    <div class="modal">
+      <h2>Add New Mock</h2>
+      <div class="form-group"><label>Mock Name</label><input type="text" id="addMockName" placeholder="Mock 1"></div>
+      <div class="form-group-split">
+        <div class="form-group">
+          <label>Platform</label>
+          <div class="platform-combo">
+            <input type="text" id="addMockPlatform" placeholder="e.g. Allen, Unacademy, PW..." autocomplete="off" onfocus="showPlatformDropdown('add')" oninput="filterPlatformDropdown('add')">
+            <div class="platform-dropdown" id="addPlatformDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group"><label>Scheduled Date</label><input type="date" id="addMockDate" onclick="this.showPicker()"></div>
+        <div class="form-group"><label>Scheduled Time</label><input type="time" id="addMockTime" onclick="this.showPicker()"></div>
+      </div>
+      <div class="form-group" id="addMockSectionsGroup" style="display:none;">
+        <label>Sections Attempted</label>
+        <div class="mock-section-checks" id="addMockSectionChecks"></div>
+        <div style="font-size:.68rem;color:var(--text-muted);margin-top:4px;">Uncheck sections not attempted in this mock</div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeAddMockModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmCreateMock()">Create Mock</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Mock Modal -->
+  <div class="modal-overlay" id="editMockModal">
+    <div class="modal">
+      <h2>Edit Mock</h2>
+      <div class="form-group"><label>Mock Name</label><input type="text" id="editMockName"></div>
+      <div class="form-group-split">
+        <div class="form-group">
+          <label>Platform</label>
+          <div class="platform-combo">
+            <input type="text" id="editMockPlatform" placeholder="e.g. Allen, Unacademy, PW..." autocomplete="off" onfocus="showPlatformDropdown('edit')" oninput="filterPlatformDropdown('edit')">
+            <div class="platform-dropdown" id="editPlatformDropdown"></div>
+          </div>
+        </div>
+        <div class="form-group"><label>Scheduled Date</label><input type="date" id="editMockDate" onclick="this.showPicker()"></div>
+        <div class="form-group"><label>Scheduled Time</label><input type="time" id="editMockTime" onclick="this.showPicker()"></div>
+      </div>
+      <div class="form-group" id="editMockSectionsGroup" style="display:none;">
+        <label>Sections Attempted</label>
+        <div class="mock-section-checks" id="editMockSectionChecks"></div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeEditMockModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveEditMock()">Save Changes</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div class="modal-overlay" id="customConfirmModal">
+    <div class="modal custom-confirm-modal">
+      <h2 style="font-size: 1.1rem; margin-bottom: 12px;">Confirm Action</h2>
+      <p id="customConfirmMessage" style="font-size: .9rem; color: var(--text-secondary); margin-bottom: 20px; line-height: 1.5;"></p>
+      <div style="margin-bottom: 20px; display: flex; align-items: center; gap: 8px;">
+        <input type="checkbox" id="customConfirmMute" style="accent-color: var(--accent); cursor: pointer;">
+        <label for="customConfirmMute" style="font-size: .85rem; color: var(--text-muted); cursor: pointer;">Don't ask again for 5 minutes</label>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" id="customConfirmCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="customConfirmOkBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Desk Profile Modal -->
+  <div class="modal-overlay" id="deskProfileModal" style="z-index: 1300;">
+    <div class="modal">
+      <h2>Create Profile</h2>
+      <div class="form-group">
+        <label>Profile Name</label>
+        <input type="text" id="deskProfileNameInput" placeholder="Profile name..." onkeydown="if(event.key==='Enter')confirmCreateDeskProfile()">
+      </div>
+      <div class="form-group">
+        <label>Accent Color</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;" id="deskProfileColorPicker">
+          <script>
+            document.write(['#a78bfa','#f472b6','#34d399','#60a5fa','#fbbf24','#fb923c','#f87171','#a3e635','#2dd4bf','#c084fc'].map(c => `<div class="color-swatch desk-profile-color-swatch" style="background:${c}; cursor:pointer;" onclick="document.querySelectorAll('.desk-profile-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');this.dataset.color='${c}';"></div>`).join(''));
+          </script>
+        </div>
+      </div>
+      <div class="form-actions">
+        <button class="btn btn-secondary" onclick="closeDeskProfileModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmCreateDeskProfile()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Desk Profile Modal -->
+  <div class="modal-overlay" id="editDeskProfileModal" style="z-index: 1300;">
+    <div class="modal">
+      <h2>Edit Profile</h2>
+      <input type="hidden" id="editDeskProfileIdInput">
+      <div class="form-group">
+        <label>Profile Name</label>
+        <input type="text" id="editDeskProfileNameInput" placeholder="Profile name..." onkeydown="if(event.key==='Enter')confirmEditDeskProfile()">
+      </div>
+      <div class="form-group">
+        <label>Accent Color</label>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;" id="editDeskProfileColorPicker">
+          <script>
+            document.write(['#a78bfa','#f472b6','#34d399','#60a5fa','#fbbf24','#fb923c','#f87171','#a3e635','#2dd4bf','#c084fc'].map(c => `<div class="color-swatch edit-desk-profile-color-swatch" style="background:${c}; cursor:pointer;" onclick="document.querySelectorAll('.edit-desk-profile-color-swatch').forEach(s=>s.classList.remove('selected'));this.classList.add('selected');this.dataset.color='${c}';"></div>`).join(''));
+          </script>
+        </div>
+      </div>
+      <div class="form-actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; margin-top: 24px;">
+        <button id="deskProfileArchiveBtn" class="btn btn-secondary" onclick="archiveDeskProfileFromEdit()" style="color: var(--text-muted); border-color: var(--border); background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; gap: 6px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>Archive</button>
+        <button class="btn btn-secondary" onclick="deleteDeskProfileFromEdit()" style="color: var(--danger); border-color: var(--danger-dim); background: rgba(248,81,73,0.1); display: flex; align-items: center; justify-content: center;">Delete Profile</button>
+        <button class="btn btn-secondary" onclick="closeEditDeskProfileModal()" style="display: flex; align-items: center; justify-content: center;">Cancel</button>
+        <button class="btn btn-primary" onclick="confirmEditDeskProfile()" style="display: flex; align-items: center; justify-content: center;">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Image Viewer Modal -->
+  <div class="image-viewer-overlay" id="imageViewerOverlay" onclick="closeImageViewer(event)">
+    <div class="image-viewer-img-wrap">
+      <img id="imageViewerImg" src="" alt="Preview">
+    </div>
+    <div class="image-viewer-toolbar">
+      <button class="iv-btn" onclick="ivZoom(0.2)" title="Zoom In"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg></button>
+      <button class="iv-btn" onclick="ivZoom(-0.2)" title="Zoom Out"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg></button>
+      <button class="iv-btn" onclick="ivFit()" title="Fit"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="8 3 3 3 3 8"></polyline><polyline points="16 3 21 3 21 8"></polyline><polyline points="8 21 3 21 3 16"></polyline><polyline points="16 21 21 21 21 16"></polyline></svg></button>
+      <div class="iv-separator"></div>
+      <button class="iv-btn" onclick="ivRotate(-90)" title="Rotate Left"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"></path></svg></button>
+      <button class="iv-btn" onclick="ivRotate(90)" title="Rotate Right"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path></svg></button>
+      <div class="iv-separator"></div>
+      <button class="iv-btn" onclick="ivCopy()" title="Copy"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
+      <button class="iv-btn" onclick="ivDownload()" title="Download"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg></button>
+      <div class="iv-separator"></div>
+      <button class="iv-btn iv-btn-danger" onclick="closeImageViewer(event,true)" title="Close"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
+    </div>
+  </div>
+
+  <!-- My Desk Modal -->
+  <div class="desk-modal-overlay" id="deskModalOverlay">
+    <div class="desk-modal">
+      <div class="desk-modal-header">
+        <h2><svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg> My Desk</h2>
+      </div>
+      <div class="desk-modal-body">
+        <div class="desk-profile-stats" id="deskProfileStats"></div>
+        <div class="desk-split">
+          <div class="desk-column" id="deskTasksPane">
+            <div class="desk-column-header"><h3>Tasks</h3></div>
+            <div class="desk-column-body" id="deskTasksBody"></div>
+            <div class="desk-add-task-row" style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+              <input type="text" id="deskTaskInput" placeholder="Add a task..." onkeydown="if(event.key==='Enter')addDeskTask()" style="flex: 1;">
+              <button class="btn btn-primary btn-sm" onclick="addDeskTask()">Add</button>
+            </div>
+          </div>
+          <div class="desk-split-divider"></div>
+          <div class="desk-column" id="deskJournalPane">
+            <div class="desk-column-header">
+              <h3>Journal</h3>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <button id="deskJournalFullscreenBtn" class="desk-journal-fullscreen-btn" onclick="toggleDeskJournalFullscreen()" title="Journal fullscreen" aria-label="Toggle journal fullscreen">⤢</button>
+                <button class="btn btn-secondary btn-sm" onclick="openDeskEntryEditor()">+ Log Entry</button>
+              </div>
+            </div>
+            <div class="desk-journal-list" id="deskJournalList"></div>
+            <div class="desk-entry-editor" id="deskEntryEditor">
+              <div class="entry-editor-header">
+                <input type="text" class="entry-title-input" id="deskEntryTitleInput" value="" placeholder="Entry title...">
+              </div>
+              <div class="entry-toolbar" id="deskEntryToolbar">
+                <div class="toolbar-group"><select class="toolbar-heading-select" id="deskHeadingSelect" onchange="execDeskHeading(this.value)"><option value="">Normal</option><option value="H1">Heading 1</option><option value="H2">Heading 2</option><option value="H3">Heading 3</option></select></div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group">
+                  <button class="toolbar-btn" onclick="execDeskFormat('bold')" title="Bold"><strong>B</strong></button>
+                  <button class="toolbar-btn" onclick="execDeskFormat('italic')" title="Italic"><em>I</em></button>
+                  <button class="toolbar-btn" onclick="execDeskFormat('strikeThrough')" title="Strikethrough"><s>S</s></button>
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group">
+                  <div class="toolbar-color-wrapper">
+                    <button class="toolbar-btn" id="deskFontColorBtn" onclick="toggleDeskColorPicker('fontColor')" title="Font Color"><span style="border-bottom:3px solid #ef4444;padding-bottom:1px;font-weight:700;font-size:.82rem;">A</span></button>
+                    <div class="color-picker-panel" id="deskFontColorPanel">
+                      <div class="color-picker-grid" id="deskFontColorGrid"></div>
+                      <button class="color-picker-clear" onclick="execDeskFontColor('');closeDeskColorPickers()">Reset Color</button>
+                    </div>
+                  </div>
+                  <div class="toolbar-color-wrapper">
+                    <button class="toolbar-btn" id="deskHighlightBtn" onclick="toggleDeskColorPicker('highlight')" title="Highlight"><span style="background:#fde047;color:#000;padding:0 4px;border-radius:2px;font-weight:700;font-size:.78rem;">H</span></button>
+                    <div class="color-picker-panel" id="deskHighlightPanel">
+                      <div class="color-picker-grid" id="deskHighlightGrid"></div>
+                      <button class="color-picker-clear" onclick="execDeskHighlight('');closeDeskColorPickers()">Remove Highlight</button>
+                    </div>
+                  </div>
+                  <div class="toolbar-color-wrapper">
+                    <button class="toolbar-btn" id="deskPageColorBtn" onclick="toggleDeskColorPicker('pageColor')" title="Page Color"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+                    <div class="color-picker-panel" id="deskPageColorPanel">
+                      <div class="color-picker-grid" id="deskPageColorGrid"></div>
+                      <button class="color-picker-clear" onclick="execDeskPageColor('');closeDeskColorPickers()">Reset to Default</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group">
+                  <button class="toolbar-btn" onclick="execDeskFormat('insertUnorderedList')" title="Bullet List"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/><circle cx="4" cy="6" r="1.5" fill="currentColor"/><circle cx="4" cy="12" r="1.5" fill="currentColor"/><circle cx="4" cy="18" r="1.5" fill="currentColor"/></svg></button>
+                  <button class="toolbar-btn" onclick="execDeskFormat('insertOrderedList')" title="Numbered List"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="10" y1="6" x2="20" y2="6"/><line x1="10" y1="12" x2="20" y2="12"/><line x1="10" y1="18" x2="20" y2="18"/></svg></button>
+                </div>
+                <div class="toolbar-divider"></div>
+                <div class="toolbar-group">
+                  <button class="toolbar-btn" onclick="insertDeskLink()" title="Link"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg></button>
+                  <button class="toolbar-btn" onclick="insertDeskImage()" title="Image"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></button>
+                  <button class="toolbar-btn" onclick="insertDeskAudio()" title="Audio"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></button>
+                  <button class="toolbar-btn" onclick="insertDeskDocument()" title="Doc"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></button>
+                  <div class="divider-picker-wrapper">
+                    <button class="toolbar-btn" onclick="toggleDeskDividerPicker()" title="Divider Line"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="8" y2="6"/><line x1="3" y1="18" x2="8" y2="18"/></svg></button>
+                    <div class="divider-picker-panel" id="deskDividerPickerPanel"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="entry-body" id="deskEntryBody" contenteditable="true" data-placeholder="Start writing..."></div>
+              <div class="desk-entry-editor-footer">
+                <button class="btn btn-primary btn-sm" onclick="saveDeskEntry()">Save</button>
+                <button class="btn btn-secondary btn-sm" onclick="closeDeskEntryEditor()">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="desk-tab-controls" style="display:flex; justify-content: space-between; align-items: center; padding: 4px 16px; background: var(--bg-modal); border-top: 1px solid var(--border);">
+        <div style="display:flex; gap: 8px; align-items: center;">
+          <button class="desk-tab-add" onclick="promptNewProfile()" title="New Profile" style="font-size: 1rem; padding: 4px 12px; border: 1px dashed var(--accent); border-radius: 20px; background: var(--accent-dim); color: var(--accent); cursor: pointer; transition: all 0.2s ease;">+</button>
+          <button id="deskTabEditBtn" onclick="setDeskTabMode('edit')" title="Edit Profiles" style="font-size: .8rem; padding: 4px 12px; border: 1px solid var(--border); border-radius: 20px; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease;">✎ Edit Mode</button>
+          <button id="deskArchiveToggleBtn" onclick="toggleDeskArchivePanel()" title="Toggle Archives" style="font-size: .8rem; padding: 4px 12px; border: 1px solid var(--border); border-radius: 20px; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.2s ease; display: flex; align-items: center; gap: 4px;"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="21 8 21 21 3 21 3 8"></polyline><rect x="1" y="3" width="22" height="5"></rect><line x1="10" y1="12" x2="14" y2="12"></line></svg>Archives</button>
+        </div>
+        <div style="display:flex; gap: 8px; align-items: center;">
+          <div style="display:flex; gap: 4px; background: rgba(0,0,0,0.2); padding: 4px; border-radius: 8px;">
+            <button id="deskTabScrollBtn" class="btn btn-sm active" style="font-size: .7rem; padding: 4px 8px; border-radius: 6px; background: var(--accent); color: #000;" onclick="setDeskTabMode('scroll')">Scroll</button>
+            <button id="deskTabOrderBtn" class="btn btn-sm" style="font-size: .7rem; padding: 4px 8px; border-radius: 6px; background: transparent; color: var(--text-muted);" onclick="setDeskTabMode('order')">Order</button>
+          </div>
+          <button class="desk-close-btn" onclick="closeMyDesk()" title="Close Desk"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>Close</button>
+        </div>
+      </div>
+      <div class="desk-tab-bar" id="deskTabBar"></div>
+    </div>
+  </div>
+
+  <script src="/js/suntime.js?v=7"></script>
+  <script src="/js/timer.js?v=7"></script>
+  <script src="/js/sidebar.js?v=7"></script>
+  <script src="/js/desk.js?v=9"></script>
+  <script src="/js/dashboard.js?v=15"></script>
+  <script src="/js/mocks.js?v=10"></script>
+  <script src="/js/goals.js?v=14"></script>
+</body>
+
+</html>
