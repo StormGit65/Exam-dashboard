@@ -29,3 +29,7 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+
+# Database Backups
+backup/
+

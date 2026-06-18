@@ -31,6 +31,10 @@ Kaizen Dashboard is a premium, offline-first Exam Preparation and Study Tracker 
 ### 🖥️ My Desk Profiles
 - Create custom profiles or study workspaces (e.g., separate desks for different subjects or general productivity tasks) outside of specific exams.
 
+### 💾 Database Backup & Migration
+- **One-click Backup**: Export the entire database into a single, portable `.archive` file.
+- **Easy Recovery**: Move the archive to another machine and restore it with a single click.
+
 ---
 
 ## 🛠️ Tech Stack
@@ -77,6 +81,32 @@ Simply double-click the `start.cmd` script in the root directory. It will automa
 - Start the Node.js server.
 - Wait a brief moment and launch the dashboard in your default web browser (`http://localhost:3000`).
 
+#### **On Linux (Fedora/Debian/Ubuntu)**
+Run the startup script in your terminal:
+```bash
+./start.sh
+```
+*(Ensure it is executable with `chmod +x start.sh`). It will launch the backend server and open the app in your default browser.*
+
+---
+
+## 💾 Database Backup & Recovery Tool
+
+An offline GUI backup/restore utility is included to help migrate your data between machines.
+
+### Prerequisites
+The utility requires `tkinter` (Python's GUI framework) and MongoDB database tools:
+- **Fedora**: `sudo dnf install python3-tkinter mongodb-database-tools`
+- **Ubuntu/Debian**: `sudo apt install python3-tk mongodb-database-tools`
+
+### Usage
+1. Execute the tool:
+   ```bash
+   ./mongo_backup_gui.py
+   ```
+2. Click **Take Backup** to save a snapshot of the database to the local `backup/` folder.
+3. Move the generated `.archive` file to your target machine and use the **Restore DB** button to recover your database state.
+
 ---
 
 ## 📂 Project Structure
@@ -87,9 +117,12 @@ Simply double-click the `start.cmd` script in the root directory. It will automa
 │   ├── js/                 # Client-side JavaScript (dashboard, timer, suntime, etc.)
 │   ├── index.html          # Main portal
 │   └── dashboard.html      # Detailed exam dashboard
+├── backup/                 # Saved database backups (git-ignored)
 ├── uploads/                # Directory for user-uploaded attachments (git-ignored)
+├── mongo_backup_gui.py     # Python GUI backup and restore utility
 ├── package.json            # NPM dependencies and run scripts
 ├── seed.js                 # Seeding script for mock data
 ├── server.js               # Express API and server configuration
-└── start.cmd               # Quick launcher script for Windows
+├── start.cmd               # Quick launcher script for Windows
+└── start.sh                # Startup script for Fedora/Linux
 ```
