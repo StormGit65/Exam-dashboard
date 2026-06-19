@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Kaizen — Database Sync Manager">
+  <title>Kaizen — Sync Manager</title>
+  <link rel="icon" type="image/svg+xml" href="/img/icon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --dp-bg: #0a0a0a;
+      --dp-surface: #141414;
+      --dp-card: rgba(20, 20, 20, 0.9);
+      --dp-red: #c41e3a;
+      --dp-red-bright: #e8273b;
+      --dp-red-dim: rgba(196, 30, 58, 0.15);
+      --dp-red-glow: rgba(232, 39, 59, 0.3);
+      --dp-black: #1a1a1a;
+      --dp-dark-gray: #2a2a2a;
+      --dp-gray: #3a3a3a;
+      --dp-text: #e8e8e8;
+      --dp-text-dim: #888;
+      --dp-text-muted: #555;
+      --dp-white: #f0f0f0;
+      --dp-success: #2ecc71;
+      --dp-success-dim: rgba(46, 204, 113, 0.15);
+      --dp-warning: #f39c12;
+      --dp-warning-dim: rgba(243, 156, 18, 0.15);
+      --dp-danger: #e74c3c;
+      --dp-info: #58a6ff;
+      --dp-info-dim: rgba(88, 166, 255, 0.12);
+      --dp-border: rgba(255, 255, 255, 0.06);
+      --dp-border-red: rgba(196, 30, 58, 0.3);
+      --radius: 16px;
+      --radius-sm: 10px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--dp-bg);
+      color: var(--dp-text);
+      min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse at 20% 0%, rgba(196, 30, 58, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 100%, rgba(196, 30, 58, 0.05) 0%, transparent 50%);
+    }
+
+    .sync-page {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 40px 24px 80px;
+    }
+
+    /* Header */
+    .sync-header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    .sync-header h1 {
+      font-size: 2rem;
+      font-weight: 800;
+      background: linear-gradient(135deg, var(--dp-red-bright), #fff, var(--dp-red-bright));
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 3s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% center; }
+      50% { background-position: 200% center; }
+    }
+    .sync-header p { color: var(--dp-text-dim); font-size: 0.95rem; margin-top: 6px; }
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--dp-text-dim); text-decoration: none; font-size: 0.85rem;
+      margin-bottom: 16px; transition: color 0.2s;
+    }
+    .back-link:hover { color: var(--dp-red-bright); }
+
+    /* Mode Badge */
+    .mode-badge-wrap { display: flex; justify-content: center; margin-bottom: 32px; }
+    .mode-badge {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 10px 24px; border-radius: 30px;
+      font-weight: 600; font-size: 0.9rem; letter-spacing: 0.5px;
+      border: 1px solid var(--dp-border);
+    }
+    .mode-badge.dual { background: var(--dp-success-dim); border-color: rgba(46,204,113,0.3); color: var(--dp-success); }
+    .mode-badge.local { background: var(--dp-warning-dim); border-color: rgba(243,156,18,0.3); color: var(--dp-warning); }
+    .mode-badge.atlas { background: var(--dp-info-dim); border-color: rgba(88,166,255,0.3); color: var(--dp-info); }
+    .mode-badge.none { background: var(--dp-red-dim); border-color: var(--dp-border-red); color: var(--dp-red-bright); }
+    .mode-dot { width: 10px; height: 10px; border-radius: 50%; animation: pulse-dot 2s ease-in-out infinite; }
+    .mode-badge.dual .mode-dot { background: var(--dp-success); }
+    .mode-badge.local .mode-dot { background: var(--dp-warning); }
+    .mode-badge.atlas .mode-dot { background: var(--dp-info); }
+    .mode-badge.none .mode-dot { background: var(--dp-red-bright); animation: none; }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+    /* Connection Cards */
+    .conn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 32px; }
+    .conn-card {
+      background: var(--dp-card); border: 1px solid var(--dp-border);
+      border-radius: var(--radius); padding: 20px;
+      position: relative; overflow: hidden;
+    }
+    .conn-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .conn-card.connected::before { background: linear-gradient(90deg, var(--dp-success), transparent); }
+    .conn-card.disconnected::before { background: linear-gradient(90deg, var(--dp-red-bright), transparent); }
+    .conn-label { font-size: 0.75rem; color: var(--dp-text-muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+    .conn-name { font-size: 1.1rem; font-weight: 700; margin: 6px 0; }
+    .conn-status { display: flex; align-items: center; gap: 6px; font-size: 0.82rem; font-weight: 500; }
+    .conn-status.ok { color: var(--dp-success); }
+    .conn-status.fail { color: var(--dp-red-bright); }
+
+    /* Stats Row */
+    .stats-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 32px; }
+    .stat-chip {
+      background: var(--dp-card); border: 1px solid var(--dp-border);
+      border-radius: 20px; padding: 8px 18px;
+      display: flex; align-items: center; gap: 8px;
+      font-size: 0.82rem; color: var(--dp-text-dim);
+    }
+    .stat-chip .stat-val { font-weight: 700; color: var(--dp-text); }
+
+    /* Action Bar */
+    .action-bar { display: flex; gap: 12px; margin-bottom: 32px; flex-wrap: wrap; }
+    .dp-btn {
+      padding: 10px 22px; border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; display: inline-flex;
+      align-items: center; gap: 8px;
+    }
+    .dp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dp-btn-primary {
+      background: linear-gradient(135deg, var(--dp-red), var(--dp-red-bright));
+      color: #fff; box-shadow: 0 4px 15px var(--dp-red-glow);
+    }
+    .dp-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px var(--dp-red-glow); }
+    .dp-btn-secondary {
+      background: var(--dp-dark-gray); color: var(--dp-text); border: 1px solid var(--dp-border);
+    }
+    .dp-btn-secondary:hover:not(:disabled) { background: var(--dp-gray); }
+    .dp-btn-danger { background: rgba(231,76,60,0.15); color: var(--dp-danger); border: 1px solid rgba(231,76,60,0.2); }
+    .dp-btn-danger:hover:not(:disabled) { background: rgba(231,76,60,0.25); }
+
+    /* Section */
+    .section { margin-bottom: 32px; }
+    .section-title {
+      font-size: 1rem; font-weight: 700; margin-bottom: 16px;
+      display: flex; align-items: center; gap: 8px;
+      color: var(--dp-text); border-bottom: 1px solid var(--dp-border);
+      padding-bottom: 10px;
+    }
+    .section-title .accent { color: var(--dp-red-bright); }
+
+    /* Ledger Table */
+    .ledger-table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+    .ledger-table th {
+      text-align: left; padding: 10px 14px; background: var(--dp-dark-gray);
+      color: var(--dp-text-dim); font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px; font-size: 0.72rem;
+    }
+    .ledger-table th:first-child { border-radius: var(--radius-sm) 0 0 0; }
+    .ledger-table th:last-child { border-radius: 0 var(--radius-sm) 0 0; }
+    .ledger-table td {
+      padding: 10px 14px; border-bottom: 1px solid var(--dp-border);
+      color: var(--dp-text-dim);
+    }
+    .ledger-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .action-tag {
+      display: inline-block; padding: 3px 10px; border-radius: 12px;
+      font-size: 0.72rem; font-weight: 600;
+    }
+    .action-tag.pull { background: var(--dp-info-dim); color: var(--dp-info); }
+    .action-tag.push { background: var(--dp-success-dim); color: var(--dp-success); }
+    .action-tag.sync { background: var(--dp-warning-dim); color: var(--dp-warning); }
+    .action-tag.none { background: rgba(255,255,255,0.05); color: var(--dp-text-muted); }
+    .action-tag.error { background: var(--dp-red-dim); color: var(--dp-red-bright); }
+
+    /* Snapshots */
+    .snap-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .snap-card {
+      background: var(--dp-card); border: 1px solid var(--dp-border);
+      border-radius: var(--radius-sm); padding: 16px;
+      transition: border-color 0.2s;
+    }
+    .snap-card:hover { border-color: var(--dp-border-red); }
+    .snap-name { font-size: 0.8rem; font-weight: 600; color: var(--dp-text); word-break: break-all; margin-bottom: 6px; }
+    .snap-meta { font-size: 0.72rem; color: var(--dp-text-muted); margin-bottom: 10px; }
+    .snap-source {
+      display: inline-block; padding: 2px 8px; border-radius: 8px;
+      font-size: 0.68rem; font-weight: 600; margin-left: 6px;
+    }
+    .snap-source.local { background: var(--dp-warning-dim); color: var(--dp-warning); }
+    .snap-source.atlas { background: var(--dp-info-dim); color: var(--dp-info); }
+
+    /* No DB overlay */
+    .no-db-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: var(--dp-bg); flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 40px;
+    }
+    .no-db-overlay.active { display: flex; }
+    .no-db-overlay h2 { font-size: 1.6rem; font-weight: 800; color: var(--dp-red-bright); margin-bottom: 12px; }
+    .no-db-overlay p { color: var(--dp-text-dim); max-width: 400px; margin-bottom: 24px; line-height: 1.6; }
+
+    /* Empty state */
+    .empty-state { text-align: center; padding: 40px 20px; color: var(--dp-text-muted); font-size: 0.88rem; }
+
+    /* Loading spinner */
+    .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.2); border-top-color: var(--dp-red-bright); border-radius: 50%; animation: spin 0.6s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+      border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500;
+      z-index: 10000; transform: translateY(100px); opacity: 0;
+      transition: all 0.3s ease;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--dp-success); color: #000; }
+    .toast.error { background: var(--dp-red-bright); color: #fff; }
+
+    @media (max-width: 640px) {
+      .conn-grid { grid-template-columns: 1fr; }
+      .snap-grid { grid-template-columns: 1fr; }
+      .action-bar { flex-direction: column; }
+      .dp-btn { width: 100%; justify-content: center; }
+    }
+  </style>
+</head>
+<body>
+  <!-- No DB Overlay -->
+  <div class="no-db-overlay" id="noDbOverlay">
+    <h2>⚠ Database Connection Failed</h2>
+    <p>Neither local MongoDB nor MongoDB Atlas could be reached. Check your <code>.env</code> configuration and ensure at least one database is running.</p>
+    <button class="dp-btn dp-btn-primary" onclick="reconnect()" id="reconnectBtn">🔄 Reconnect</button>
+  </div>
+
+  <!-- Custom Confirm Modal -->
+  <div class="no-db-overlay" id="customConfirmModal" style="background: rgba(10,10,10,0.85); backdrop-filter: blur(4px);">
+    <div style="background: var(--dp-card); border: 1px solid var(--dp-border); border-radius: var(--radius); padding: 24px; max-width: 400px; text-align: left;">
+      <h2 id="confirmTitle" style="font-size: 1.4rem; color: var(--dp-text); margin-bottom: 12px; font-weight: 700;">Confirm</h2>
+      <p id="confirmMsg" style="color: var(--dp-text-dim); margin-bottom: 24px; line-height: 1.5; font-size: 0.95rem;"></p>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="dp-btn dp-btn-secondary" onclick="closeConfirmModal()">Cancel</button>
+        <button class="dp-btn dp-btn-primary" id="confirmActionBtn">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="sync-page" id="syncPage">
+    <a href="/" class="back-link">← Back to Kaizen</a>
+
+    <div class="sync-header">
+      <h1>⚡ Sync Manager</h1>
+      <p>Database synchronization &amp; recovery</p>
+    </div>
+
+    <!-- Mode Badge -->
+    <div class="mode-badge-wrap">
+      <div class="mode-badge none" id="modeBadge">
+        <div class="mode-dot"></div>
+        <span id="modeLabel">Loading...</span>
+      </div>
+    </div>
+
+    <!-- Connection Cards -->
+    <div class="conn-grid">
+      <div class="conn-card disconnected" id="localCard">
+        <div class="conn-label">Offline Database</div>
+        <div class="conn-name">Local MongoDB</div>
+        <div class="conn-status fail" id="localStatus">● Disconnected</div>
+      </div>
+      <div class="conn-card disconnected" id="atlasCard">
+        <div class="conn-label">Online Database</div>
+        <div class="conn-name">MongoDB Atlas</div>
+        <div class="conn-status fail" id="atlasStatus">● Disconnected</div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="statsRow"></div>
+
+    <!-- Actions -->
+    <div class="action-bar">
+      <button class="dp-btn dp-btn-primary" id="pushBtn" onclick="manualPush()" disabled>☁️ Push to Atlas</button>
+      <button class="dp-btn dp-btn-primary" id="pullBtn" onclick="manualPull()" disabled style="background: linear-gradient(135deg, var(--dp-info), #3b82f6); box-shadow: 0 4px 15px var(--dp-info-dim);">⬇️ Pull from Atlas</button>
+      <button class="dp-btn dp-btn-secondary" onclick="reconnect()">🔄 Reconnect</button>
+      <button class="dp-btn dp-btn-secondary" onclick="loadAll()">⟳ Refresh</button>
+    </div>
+
+    <!-- Startup Action -->
+    <div class="section" id="startupSection" style="display:none;">
+      <div class="section-title"><span class="accent">⚡</span> Last Startup Action</div>
+      <div id="startupInfo" style="padding:12px 16px;background:var(--dp-card);border:1px solid var(--dp-border);border-radius:var(--radius-sm);font-size:0.88rem;color:var(--dp-text-dim);"></div>
+    </div>
+
+    <!-- Sync Ledger -->
+    <div class="section">
+      <div class="section-title"><span class="accent">📋</span> Sync Ledger</div>
+      <div id="ledgerWrap">
+        <div class="empty-state">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Snapshots section removed per user request (moved to ledger) -->
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let currentStatus = null;
+
+    async function loadAll() {
+      await loadStatus();
+      await loadLedger();
+    }
+
+    async function loadStatus() {
+      try {
+        const res = await fetch('/api/sync/status');
+        const data = await res.json();
+        currentStatus = data;
+        renderStatus(data);
+      } catch (err) {
+        console.error('Failed to load status:', err);
+      }
+    }
+
+    function renderStatus(s) {
+      // No DB overlay
+      const overlay = document.getElementById('noDbOverlay');
+      if (s.mode === 'NONE') {
+        overlay.classList.add('active');
+      } else {
+        overlay.classList.remove('active');
+      }
+
+      // Mode badge
+      const badge = document.getElementById('modeBadge');
+      const label = document.getElementById('modeLabel');
+      badge.className = 'mode-badge';
+      switch (s.mode) {
+        case 'DUAL': badge.classList.add('dual'); label.textContent = 'DUAL — Full Sync Active'; break;
+        case 'LOCAL_ONLY': badge.classList.add('local'); label.textContent = 'LOCAL ONLY — Offline Mode'; break;
+        case 'ATLAS_ONLY': badge.classList.add('atlas'); label.textContent = 'ATLAS ONLY — Cloud Mode'; break;
+        default: badge.classList.add('none'); label.textContent = 'NO CONNECTION'; break;
+      }
+
+      // Connection cards
+      const localCard = document.getElementById('localCard');
+      const atlasCard = document.getElementById('atlasCard');
+      const localSt = document.getElementById('localStatus');
+      const atlasSt = document.getElementById('atlasStatus');
+
+      localCard.className = `conn-card ${s.localConnected ? 'connected' : 'disconnected'}`;
+      atlasCard.className = `conn-card ${s.atlasConnected ? 'connected' : 'disconnected'}`;
+      localSt.className = `conn-status ${s.localConnected ? 'ok' : 'fail'}`;
+      atlasSt.className = `conn-status ${s.atlasConnected ? 'ok' : 'fail'}`;
+      localSt.textContent = s.localConnected ? '● Connected' : '● Disconnected';
+      atlasSt.textContent = s.atlasConnected ? '● Connected' : '● Disconnected';
+
+      // Push/Pull buttons
+      document.getElementById('pushBtn').disabled = !(s.localConnected && s.atlasConnected);
+      document.getElementById('pullBtn').disabled = !(s.localConnected && s.atlasConnected);
+
+      // Stats
+      const statsRow = document.getElementById('statsRow');
+      statsRow.innerHTML = '';
+      if (s.collections) {
+        for (const [col, count] of Object.entries(s.collections)) {
+          statsRow.innerHTML += `<div class="stat-chip"><span class="stat-val">${count}</span> ${col}</div>`;
+        }
+      }
+      if (s.primaryLastUpdated) {
+        statsRow.innerHTML += `<div class="stat-chip">Last updated: <span class="stat-val">${new Date(s.primaryLastUpdated).toLocaleString()}</span></div>`;
+      }
+
+      // Startup action
+      if (s.startupAction && s.startupAction !== 'NONE') {
+        document.getElementById('startupSection').style.display = '';
+        const info = document.getElementById('startupInfo');
+        const actionMap = {
+          'PULL_FROM_ATLAS': '⬇️ Pulled latest data from Atlas (Atlas was ahead)',
+          'LOCAL_AHEAD': '⬆️ Local is ahead — will push to Atlas on shutdown',
+          'IN_SYNC': '✅ Databases are in sync — no action needed',
+          'INITIAL_PUSH_TO_ATLAS': '⬆️ First-time setup — pushed local data to Atlas',
+          'INITIAL_PULL_FROM_ATLAS': '⬇️ New device setup — pulled data from Atlas',
+          'INITIAL_SYNC': '🔄 Initial sync — timestamps initialized',
+          'BOTH_EMPTY': '📭 Both databases are empty',
+          'LOCAL_ONLY': '💾 Working offline — Atlas not available',
+          'ATLAS_ONLY': '☁️ Working on Atlas — local DB not available',
+        };
+        info.textContent = actionMap[s.startupAction] || s.startupAction;
+      }
+    }
+
+    async function loadLedger() {
+      try {
+        const [ledgerRes, snapRes] = await Promise.all([
+          fetch('/api/sync/ledger'),
+          fetch('/api/sync/snapshots')
+        ]);
+        const data = await ledgerRes.json();
+        const snapsData = await snapRes.json();
+        
+        // Map snapshots by name for quick lookup
+        const snapsMap = {};
+        for (const s of snapsData) { snapsMap[s.name] = s; }
+
+        const wrap = document.getElementById('ledgerWrap');
+
+        if (!data.length) { wrap.innerHTML = '<div class="empty-state">No sync history yet. Sessions will appear here after your first sync.</div>'; return; }
+
+        let html = '<table class="ledger-table"><thead><tr><th>Session</th><th>Mode</th><th>Startup</th><th>Shutdown</th><th>Snapshots (Undo)</th></tr></thead><tbody>';
+        
+        let headFound = false;
+
+        for (const entry of data) {
+          const start = new Date(entry.sessionStart).toLocaleString();
+          const end = entry.sessionEnd ? new Date(entry.sessionEnd).toLocaleString() : '<em>active</em>';
+          
+          // Determine HEAD pointer (first push/pull/sync)
+          let isHead = false;
+          const acts = [entry.startupAction, entry.shutdownAction].join(' ');
+          if (!headFound && (acts.includes('PUSH') || acts.includes('PULL') || acts.includes('SYNC'))) {
+            isHead = true;
+            headFound = true;
+          }
+
+          let undoText = '⎌ Undo Sync';
+          if (acts.includes('PUSH')) undoText = '⎌ Undo Push';
+          else if (acts.includes('PULL')) undoText = '⎌ Undo Pull';
+
+          // Build snapshot buttons
+          let snapsHtml = '';
+          if (entry.snapshotsBefore && entry.snapshotsBefore.length > 0) {
+            for (const sname of entry.snapshotsBefore) {
+              const snap = snapsMap[sname];
+              if (snap) {
+                snapsHtml += `<div style="margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                  <span class="snap-source ${snap.source}">${snap.source}</span>
+                  <button class="dp-btn dp-btn-secondary" style="font-size:0.65rem;padding:3px 8px;border-radius:4px;" onclick="restoreSnap('${snap.name}', '${snap.source}', '${undoText}')">${undoText}</button>
+                </div>`;
+              } else {
+                snapsHtml += `<div style="margin-bottom: 4px; font-size: 0.7rem; color: var(--dp-text-muted);">pruned snapshot</div>`;
+              }
+            }
+          } else {
+            snapsHtml = '<span class="action-tag none">—</span>';
+          }
+
+          html += `<tr>
+            <td>
+              ${isHead ? '<span style="color:var(--dp-success);font-weight:bold;margin-right:6px;font-size:0.75rem;">◀ HEAD</span>' : ''}
+              ${start}<br><small style="color:var(--dp-text-muted)">${end}</small>
+            </td>
+            <td>${entry.mode}</td>
+            <td>${actionTag(entry.startupAction)}</td>
+            <td>${entry.shutdownAction ? actionTag(entry.shutdownAction) : '<span class="action-tag none">—</span>'}</td>
+            <td>${snapsHtml}</td>
+          </tr>`;
+        }
+        html += '</tbody></table>';
+        wrap.innerHTML = html;
+      } catch (err) {
+        document.getElementById('ledgerWrap').innerHTML = '<div class="empty-state">Failed to load ledger</div>';
+      }
+    }
+
+    function actionTag(action) {
+      if (!action) return '<span class="action-tag none">—</span>';
+      const cls = action.includes('PULL') ? 'pull' : action.includes('PUSH') ? 'push' : action.includes('SYNC') || action.includes('IN_SYNC') ? 'sync' : action.includes('ERROR') ? 'error' : 'none';
+      return `<span class="action-tag ${cls}">${action.replace(/_/g, ' ')}</span>`;
+    }
+
+    async function manualPush() {
+      const btn = document.getElementById('pushBtn');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Pushing...';
+      try {
+        const res = await fetch('/api/sync/push', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) { showToast('Pushed to Atlas successfully!', 'success'); }
+        else { showToast(data.error || 'Push failed', 'error'); }
+      } catch (err) { showToast('Push failed: ' + err.message, 'error'); }
+      btn.innerHTML = '☁️ Push to Atlas';
+      await loadAll();
+    }
+
+    function showConfirmModal(title, msg, onConfirm) {
+      document.getElementById('confirmTitle').textContent = title;
+      document.getElementById('confirmMsg').textContent = msg;
+      const overlay = document.getElementById('customConfirmModal');
+      const confirmBtn = document.getElementById('confirmActionBtn');
+      overlay.classList.add('active');
+      confirmBtn.onclick = () => {
+        closeConfirmModal();
+        onConfirm();
+      };
+    }
+    
+    function closeConfirmModal() {
+      document.getElementById('customConfirmModal').classList.remove('active');
+    }
+
+    async function manualPull() {
+      showConfirmModal(
+        'Pull from Atlas', 
+        'Are you sure you want to pull from Atlas?\n\nThis will overwrite your local database with data from Atlas. A snapshot of your local data will be created first.',
+        async () => {
+          const btn = document.getElementById('pullBtn');
+          btn.disabled = true;
+          btn.innerHTML = '<span class="spinner"></span> Pulling...';
+          try {
+            const res = await fetch('/api/sync/pull', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) { showToast('Pulled from Atlas successfully!', 'success'); }
+            else { showToast(data.error || 'Pull failed', 'error'); }
+          } catch (err) { showToast('Pull failed: ' + err.message, 'error'); }
+          btn.innerHTML = '⬇️ Pull from Atlas';
+          await loadAll();
+        }
+      );
+    }
+
+    async function reconnect() {
+      const btn = document.getElementById('reconnectBtn');
+      if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> Reconnecting...'; }
+      try {
+        const res = await fetch('/api/sync/reconnect', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) { showToast(`Reconnected — Mode: ${data.mode}`, 'success'); }
+        else { showToast(data.error || 'Reconnect failed', 'error'); }
+      } catch (err) { showToast('Reconnect failed: ' + err.message, 'error'); }
+      if (btn) { btn.disabled = false; btn.innerHTML = '🔄 Reconnect'; }
+      await loadAll();
+    }
+
+    async function restoreSnap(name, source, actionName = 'Undo') {
+      showConfirmModal(
+        actionName.replace('⎌ ', ''),
+        `Are you sure you want to ${actionName.toLowerCase().replace('⎌ ', '')}?\n\nThis will restore snapshot "${name}" and overwrite the current ${source} database. A backup snapshot will be created first.`,
+        async () => {
+          try {
+            const res = await fetch('/api/sync/restore', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ snapshotName: name, target: source })
+            });
+            const data = await res.json();
+            if (data.success) { showToast('Successfully undone!', 'success'); }
+            else { showToast(data.error || 'Undo failed', 'error'); }
+          } catch (err) { showToast('Undo failed: ' + err.message, 'error'); }
+          await loadAll();
+        }
+      );
+    }
+
+    function showToast(msg, type = 'success') {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = `toast ${type} show`;
+      setTimeout(() => { t.classList.remove('show'); }, 3000);
+    }
+
+    // Load on page open
+    loadAll();
+  </script>
+</body>
+</html>

@@ -1,15 +1,22 @@
+require('dotenv').config();
+
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const sync = require('./sync');
 
 const app = express();
-const PORT = 3000;
-const MONGO_URI = 'mongodb://localhost:27017';
-const DB_NAME = 'ExamPrep';
+const PORT = process.env.PORT || 3000;
+const DB_NAME = process.env.DB_NAME || 'ExamPrep';
 
-let db;
+// Database references
+let db;              // Primary working database (local or atlas)
+let localDb = null;   // Local MongoDB connection
+let atlasDb = null;   // Atlas MongoDB connection
+let localClient = null;
+let atlasClient = null;
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads');
@@ -31,17 +38,84 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/uploads', express.static(uploadsDir));
 
-// Connect to MongoDB
-async function connectDB() {
-  try {
-    const client = new MongoClient(MONGO_URI);
-    await client.connect();
-    db = client.db(DB_NAME);
-    console.log('Connected to MongoDB — Kaizen');
-  } catch (err) {
-    console.error('MongoDB connection failed:', err.message);
-    process.exit(1);
+// ─── Write-tracking middleware ──────────────────────────────
+// Updates _syncMeta.lastUpdated on every successful write operation
+app.use(async (req, res, next) => {
+  // Only track write methods on API routes (not sync routes)
+  if (['POST', 'PUT', 'DELETE'].includes(req.method) && 
+      req.path.startsWith('/api/') && 
+      !req.path.startsWith('/api/sync/')) {
+    const originalJson = res.json.bind(res);
+    res.json = function (data) {
+      // After successful response, update sync timestamp
+      if (res.statusCode < 400 && db) {
+        sync.setLastUpdated(db).catch(() => {});
+      }
+      return originalJson(data);
+    };
   }
+  next();
+});
+
+// ─── Database connection guard ──────────────────────────────
+// If no database is connected, serve error page instead of crashing
+app.use((req, res, next) => {
+  if (!db && req.path.startsWith('/api/') && !req.path.startsWith('/api/sync/')) {
+    return res.status(503).json({ 
+      error: 'Database not connected', 
+      mode: sync.syncState.mode,
+      message: 'No database is available. Please check your .env configuration.'
+    });
+  }
+  next();
+});
+
+// ─── Connect to databases and sync ──────────────────────────
+async function connectDB() {
+  console.log('\n┌─── Kaizen — Database Connection ───┐');
+  
+  const localUri = process.env.MONGO_LOCAL_URI;
+  const atlasUri = process.env.MONGO_ATLAS_URI;
+  
+  // Try connecting to both databases
+  const localResult = await sync.tryConnect(localUri, DB_NAME, 'Local MongoDB');
+  const atlasResult = await sync.tryConnect(atlasUri, DB_NAME, 'MongoDB Atlas');
+  
+  if (localResult) {
+    localClient = localResult.client;
+    localDb = localResult.db;
+    sync.syncState.localConnected = true;
+  }
+  if (atlasResult) {
+    atlasClient = atlasResult.client;
+    atlasDb = atlasResult.db;
+    sync.syncState.atlasConnected = true;
+  }
+  
+  // Determine mode
+  const mode = sync.determineMode(localResult, atlasResult);
+  sync.syncState.mode = mode;
+  
+  if (mode === 'NONE') {
+    console.log('\n  ⚠ NO DATABASE AVAILABLE — Server will start but data features are disabled');
+    console.log('    Configure MONGO_LOCAL_URI or MONGO_ATLAS_URI in .env file');
+    console.log('└────────────────────────────────────┘\n');
+    // Don't exit — serve error page instead
+    return;
+  }
+  
+  // Set primary database
+  if (mode === 'DUAL' || mode === 'LOCAL_ONLY') {
+    db = localDb;
+  } else {
+    db = atlasDb;
+  }
+  
+  // Run startup sync
+  await sync.syncOnStartup(localDb, atlasDb, mode, localClient, atlasClient, DB_NAME);
+  
+  console.log(`\n  ◉ Primary database: ${mode === 'ATLAS_ONLY' ? 'Atlas' : 'Local'}`);
+  console.log('└────────────────────────────────────┘\n');
 }
 
 // ─── EXAM ROUTES ────────────────────────────────────────────
@@ -1065,6 +1139,177 @@ app.delete('/api/desk/entries/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ─── SYNC API ROUTES ────────────────────────────────────────
+
+// Get current sync status
+app.get('/api/sync/status', async (req, res) => {
+  try {
+    const status = { ...sync.syncState };
+    
+    // Get live lastUpdated from primary DB
+    if (db) {
+      status.primaryLastUpdated = await sync.getLastUpdated(db);
+    }
+    
+    // Get collection counts
+    if (db) {
+      status.collections = {};
+      for (const col of sync.COLLECTIONS) {
+        try {
+          status.collections[col] = await db.collection(col).countDocuments();
+        } catch {
+          status.collections[col] = 0;
+        }
+      }
+    }
+    
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get sync ledger
+app.get('/api/sync/ledger', async (req, res) => {
+  try {
+    if (!db) return res.json([]);
+    const ledger = await sync.getLedger(db);
+    res.json(ledger);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// List available snapshots
+app.get('/api/sync/snapshots', async (req, res) => {
+  try {
+    const snapshots = [];
+    
+    if (localClient) {
+      const localSnaps = await sync.listSnapshots(localClient, DB_NAME);
+      localSnaps.forEach(s => { s.source = 'local'; });
+      snapshots.push(...localSnaps);
+    }
+    
+    if (atlasClient) {
+      const atlasSnaps = await sync.listSnapshots(atlasClient, DB_NAME);
+      atlasSnaps.forEach(s => { s.source = 'atlas'; });
+      snapshots.push(...atlasSnaps);
+    }
+    
+    // Sort all by date, newest first
+    snapshots.sort((a, b) => b.date - a.date);
+    
+    res.json(snapshots);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual push to Atlas
+app.post('/api/sync/push', async (req, res) => {
+  try {
+    if (!localDb || !atlasDb) {
+      return res.status(400).json({ error: 'Both local and Atlas must be connected for manual push' });
+    }
+    const result = await sync.manualPush(localDb, atlasDb, localClient, atlasClient, DB_NAME);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual pull from Atlas
+app.post('/api/sync/pull', async (req, res) => {
+  try {
+    if (!localDb || !atlasDb) {
+      return res.status(400).json({ error: 'Both local and Atlas must be connected for manual pull' });
+    }
+    const result = await sync.manualPull(localDb, atlasDb, localClient, atlasClient, DB_NAME);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Restore from a snapshot
+app.post('/api/sync/restore', async (req, res) => {
+  try {
+    const { snapshotName, target } = req.body;
+    if (!snapshotName) return res.status(400).json({ error: 'snapshotName is required' });
+    
+    const targetDb = (target === 'atlas' && atlasDb) ? atlasDb : (localDb || db);
+    const client = (target === 'atlas' && atlasClient) ? atlasClient : (localClient || atlasClient);
+    
+    if (!targetDb || !client) {
+      return res.status(400).json({ error: 'Target database not available' });
+    }
+    
+    // Snapshot current state before restoring
+    await sync.createSnapshot(targetDb, client, DB_NAME);
+    
+    // Restore
+    await sync.restoreSnapshot(snapshotName, targetDb, client);
+    await sync.setLastUpdated(targetDb);
+    
+    // Prune old snapshots
+    await sync.pruneSnapshots(client, DB_NAME);
+    
+    res.json({ success: true, message: `Restored from ${snapshotName}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Manual push to Atlas
+app.post('/api/sync/push', async (req, res) => {
+  try {
+    if (!localDb || !atlasDb) {
+      return res.status(400).json({ error: 'Both local and Atlas must be connected for manual push' });
+    }
+    const result = await sync.manualPush(localDb, atlasDb, localClient, atlasClient, DB_NAME);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Reconnect to databases
+app.post('/api/sync/reconnect', async (req, res) => {
+  try {
+    console.log('\n  🔄 Reconnecting databases...');
+    
+    // Reload .env variables in case user updated the file
+    require('dotenv').config({ override: true });
+    
+    // Close existing connections
+    try { if (localClient) await localClient.close(); } catch {}
+    try { if (atlasClient) await atlasClient.close(); } catch {}
+    
+    localDb = null;
+    atlasDb = null;
+    localClient = null;
+    atlasClient = null;
+    db = null;
+    sync.syncState.localConnected = false;
+    sync.syncState.atlasConnected = false;
+    sync.syncState.mode = 'NONE';
+    sync.syncState.errors = [];
+    
+    // Reconnect
+    await connectDB();
+    
+    res.json({ 
+      success: true, 
+      mode: sync.syncState.mode,
+      localConnected: sync.syncState.localConnected,
+      atlasConnected: sync.syncState.atlasConnected
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── SPA FALLBACK ───────────────────────────────────────────
 
 
@@ -1076,6 +1321,40 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
+app.get('/sync', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'sync.html'));
+});
+
+// ─── GRACEFUL SHUTDOWN ──────────────────────────────────────
+
+let isShuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log(`\n\n  ⏻ Received ${signal} — shutting down gracefully...`);
+  
+  // Push to Atlas if in DUAL mode
+  if (sync.syncState.mode === 'DUAL' && localDb && atlasDb) {
+    await sync.pushOnShutdown(localDb, atlasDb, localClient, atlasClient, DB_NAME);
+  } else {
+    console.log('  ⊘ Not in DUAL mode — skipping Atlas push');
+  }
+  
+  // Close connections
+  console.log('  Closing database connections...');
+  try { if (localClient) await localClient.close(); } catch {}
+  try { if (atlasClient) await atlasClient.close(); } catch {}
+  
+  console.log('  ✓ Kaizen shut down cleanly\n');
+  process.exit(0);
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
+
 // ─── START ──────────────────────────────────────────────────
 
 connectDB().then(() => {
@@ -1083,4 +1362,3 @@ connectDB().then(() => {
     console.log(`Kaizen running at http://localhost:${PORT}`);
   });
 });
-

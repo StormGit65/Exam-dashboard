@@ -4,7 +4,7 @@ node_modules/
 # Multer / user uploads directory
 uploads/
 
-# Local env files
+# Local env files (⚠ .env.example is NOT ignored — it's the template)
 .env
 .env.local
 .env.development.local

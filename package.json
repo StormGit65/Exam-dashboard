@@ -9,6 +9,7 @@
     "seed": "node seed.js"
   },
   "dependencies": {
+    "dotenv": "^17.4.2",
     "express": "^4.21.0",
     "mongodb": "^6.10.0",
     "multer": "^2.1.1"

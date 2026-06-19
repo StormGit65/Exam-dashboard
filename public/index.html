@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Kaizen — Track your exam preparation with mock tests, daily goals, and countdown timers">
-  <title>Kaizen — Select Your Exam</title>
+  <meta name="description" content="Kaizen — Track your goals, tasks, and journals">
+  <title>Kaizen — Select Your Goal</title>
   <link rel="icon" type="image/svg+xml" href="/img/icon.svg">
   <link rel="stylesheet" href="/css/styles.css?v=22">
 </head>
@@ -17,9 +17,10 @@
     <div class="exam-header">
       <img src="/img/icon.svg" alt="Kaizen" class="logo">
       <h1>Kaizen</h1>
-      <p>Select an exam to start tracking your preparation</p>
+      <p>Select a goal to start tracking your journey</p>
+      <a href="/sync" style="margin-top: 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: 10px; background: linear-gradient(135deg, #c41e3a, #e8273b); color: #fff; font-weight: 600; font-size: 0.85rem; box-shadow: 0 4px 15px rgba(232, 39, 59, 0.3); border: none; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 20px rgba(232, 39, 59, 0.4)'" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 15px rgba(232, 39, 59, 0.3)'">⚡ Sync Manager</a>
     </div>
-    <div class="exam-section-title">Active Exams</div>
+    <div class="exam-section-title">Active Goals</div>
     <div class="exam-grid" id="examGrid"></div>
 
     <div id="archivesContainer" style="display: none; margin-top: 40px; width: 100%; max-width: 860px;">
@@ -31,18 +32,18 @@
     </div>
   </div>
 
-  <!-- Add Exam Modal -->
+  <!-- Add Goal Modal -->
   <div class="modal-overlay" id="addModal">
     <div class="modal">
-      <h2>Add New Exam</h2>
+      <h2>Add New Goal</h2>
       <div id="examSuggestions" class="exam-suggestions" style="display:none;">
-        <label class="suggestions-label">USE ARCHIVED EXAM TEMPLATE</label>
+        <label class="suggestions-label">USE ARCHIVED GOAL TEMPLATE</label>
         <div id="suggestionsChips" class="suggestions-chips"></div>
       </div>
-      <div class="form-group"><label>Exam Name</label><input type="text" id="examName" placeholder="e.g. BITSAT, JEE, NEET"></div>
-      <div class="form-group"><label>Exam Date</label><input type="date" id="examDate" onclick="this.showPicker()"></div>
+      <div class="form-group"><label>Goal Name</label><input type="text" id="examName" placeholder="e.g. Learn React, Write Book, Get Fit"></div>
+      <div class="form-group"><label>Target Date</label><input type="date" id="examDate" onclick="this.showPicker()"></div>
       <div class="form-group">
-        <label>Exam Timing (Optional)</label>
+        <label>Target Timing (Optional)</label>
         <div class="time-range-group" style="display: flex; align-items: center; gap: 8px;">
           <div class="time-picker-group">
             <select id="examStartHour" class="time-select"><option value="">HH</option></select>
@@ -61,10 +62,10 @@
       </div>
       <div class="form-group"><label>Accent Color</label><input type="color" id="examColor" value="#f5c518" style="height:40px;padding:4px;"></div>
       <input type="hidden" id="examBaseName" value="">
-      <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px;">You can add exam sections (marking criteria) after creating the exam from the Mock Tests page.</div>
+      <div style="font-size:.78rem;color:var(--text-secondary);margin-top:4px;">You can add milestones (tracking metrics) after creating the goal.</div>
       <div class="form-actions">
         <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-        <button class="btn btn-primary" onclick="createExam()">Create Exam</button>
+        <button class="btn btn-primary" onclick="createExam()">Create Goal</button>
       </div>
     </div>
   </div>
@@ -84,8 +85,8 @@
   <!-- Archive Confirm Modal -->
   <div class="modal-overlay" id="archiveModal">
     <div class="modal confirm-dialog">
-      <h2 id="archiveModalTitle">Archive Exam</h2>
-      <p id="archiveModalMsg">This exam will be moved to the Archives section and grouped by year.</p>
+      <h2 id="archiveModalTitle">Archive Goal</h2>
+      <p id="archiveModalMsg">This goal will be moved to the Archives section and grouped by year.</p>
       <div class="form-actions" style="justify-content:center;">
         <button class="btn btn-secondary" onclick="closeArchiveModal()">Cancel</button>
         <button class="btn btn-primary" id="confirmArchiveBtn">Archive</button>
@@ -96,8 +97,8 @@
   <!-- Delete Confirm Modal -->
   <div class="modal-overlay" id="deleteModal">
     <div class="modal confirm-dialog">
-      <h2>Delete Exam</h2>
-      <p style="color:var(--text-secondary);font-size:.88rem;">Are you sure you want to delete <strong id="deleteExamName"></strong>? This will permanently remove the exam and all its mocks, goals, and journal entries.</p>
+      <h2>Delete Goal</h2>
+      <p style="color:var(--text-secondary);font-size:.88rem;">Are you sure you want to delete <strong id="deleteExamName"></strong>? This will permanently remove the goal and all its tasks and journal entries.</p>
       <div class="form-actions" style="justify-content:center;">
         <button class="btn btn-secondary" onclick="closeDeleteModal()">Cancel</button>
         <button class="btn btn-danger" id="confirmDeleteBtn">Delete</button>

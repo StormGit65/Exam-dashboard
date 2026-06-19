@@ -1,7 +1,9 @@
+require('dotenv').config();
+
 const { MongoClient } = require('mongodb');
 
-const MONGO_URI = 'mongodb://localhost:27017';
-const DB_NAME = 'ExamPrep';
+const MONGO_URI = process.env.MONGO_LOCAL_URI || 'mongodb://localhost:27017';
+const DB_NAME = process.env.DB_NAME || 'ExamPrep';
 
 async function seed() {
   const client = new MongoClient(MONGO_URI);
