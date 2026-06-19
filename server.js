@@ -128,8 +128,7 @@ app.get('/api/exams', async (req, res) => {
     const todayMidnight = new Date();
     todayMidnight.setHours(0, 0, 0, 0);
 
-    const pastExams = await db.collection('exams').find({
-      isArchived: { $ne: true },
+    const pastExams = await db.collection('exams').find({ deleted: { $ne: true }, isArchived: { $ne: true },
       manuallyUnarchived: { $ne: true },
       examDate: { $ne: null }
     }).toArray();
@@ -164,12 +163,12 @@ app.get('/api/exams', async (req, res) => {
         const batchNum = existing + 1;
         await db.collection('exams').updateOne(
           { _id: exam._id },
-          { $set: { isArchived: true, baseName, examYear: year, batchLabel: `Session ${batchNum}` } }
+          { $set: { updatedAt: new Date(),  isArchived: true, baseName, examYear: year, batchLabel: `Session ${batchNum}` } }
         );
       }
     }
 
-    const exams = await db.collection('exams').find().sort({ createdAt: -1 }).toArray();
+    const exams = await db.collection('exams').find({ deleted: { $ne: true } }).sort({ createdAt: -1 }).toArray();
     res.json(exams);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -179,7 +178,7 @@ app.get('/api/exams', async (req, res) => {
 // Get single exam
 app.get('/api/exams/:id', async (req, res) => {
   try {
-    const exam = await db.collection('exams').findOne({ _id: new ObjectId(req.params.id) });
+    const exam = await db.collection('exams').findOne({ deleted: { $ne: true }, _id: new ObjectId(req.params.id) });
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
     res.json(exam);
   } catch (err) {
@@ -217,7 +216,7 @@ app.post('/api/exams', async (req, res) => {
       createdAt: new Date()
     };
 
-    const result = await db.collection('exams').insertOne(exam);
+    const result = await db.collection('exams').insertOne({ ...exam, updatedAt: new Date() });
     exam._id = result.insertedId;
     res.status(201).json(exam);
   } catch (err) {
@@ -236,7 +235,7 @@ app.put('/api/exams/:id', async (req, res) => {
     if (req.body.baseName) updates.baseName = req.body.baseName.toUpperCase();
     if (req.body.sections !== undefined) {
       updates.sections = req.body.sections;
-      const oldExam = await db.collection('exams').findOne({ _id: new ObjectId(req.params.id) });
+      const oldExam = await db.collection('exams').findOne({ deleted: { $ne: true }, _id: new ObjectId(req.params.id) });
       const oldSections = oldExam.sections || [];
       const newSections = req.body.sections;
 
@@ -255,7 +254,7 @@ app.put('/api/exams/:id', async (req, res) => {
         if (newIdx !== -1) oldToNew[oldIdx] = newIdx;
       });
 
-      const mocks = await db.collection('mocks').find({ examId: new ObjectId(req.params.id) }).toArray();
+      const mocks = await db.collection('mocks').find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id) }).toArray();
       for (const mock of mocks) {
         if (mock.sectionScores && mock.sectionScores.length > 0) {
           const newSectionScores = [];
@@ -312,7 +311,7 @@ app.put('/api/exams/:id', async (req, res) => {
 
           await db.collection('mocks').updateOne(
             { _id: mock._id },
-            { $set: { sectionScores: newSectionScores, totalScore: newTotalScore, maxScore: newMaxScore, sectionsAttempted: newSectionsAttempted } }
+            { $set: { updatedAt: new Date(),  sectionScores: newSectionScores, totalScore: newTotalScore, maxScore: newMaxScore, sectionsAttempted: newSectionsAttempted } }
           );
         }
       }
@@ -321,7 +320,7 @@ app.put('/api/exams/:id', async (req, res) => {
 
     // If exam date/time updated to future, clear manuallyUnarchived flag
     if (updates.examDate || updates.examTimeRange !== undefined) {
-      const futureDate = updates.examDate || (await db.collection('exams').findOne({ _id: new ObjectId(req.params.id) }))?.examDate;
+      const futureDate = updates.examDate || (await db.collection('exams').findOne({ deleted: { $ne: true }, _id: new ObjectId(req.params.id) }))?.examDate;
       if (futureDate) {
         const fd = new Date(futureDate);
         fd.setHours(0,0,0,0);
@@ -335,7 +334,7 @@ app.put('/api/exams/:id', async (req, res) => {
 
     await db.collection('exams').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updates }
+      { $set: { ...updates, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -347,7 +346,7 @@ app.put('/api/exams/:id', async (req, res) => {
 app.put('/api/exams/:id/archive', async (req, res) => {
   try {
     const examId = new ObjectId(req.params.id);
-    const exam = await db.collection('exams').findOne({ _id: examId });
+    const exam = await db.collection('exams').findOne({ deleted: { $ne: true }, _id: examId });
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
 
     const baseName = exam.baseName || exam.name.replace(/\s*\(Session\s*\d+\)$/i, '');
@@ -359,7 +358,7 @@ app.put('/api/exams/:id/archive', async (req, res) => {
 
     await db.collection('exams').updateOne(
       { _id: examId },
-      { $set: { isArchived: true, baseName, examYear: year, batchLabel: `Session ${batchNum}` } }
+      { $set: { updatedAt: new Date(),  isArchived: true, baseName, examYear: year, batchLabel: `Session ${batchNum}` } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -371,12 +370,12 @@ app.put('/api/exams/:id/archive', async (req, res) => {
 app.put('/api/exams/:id/unarchive', async (req, res) => {
   try {
     const examId = new ObjectId(req.params.id);
-    const exam = await db.collection('exams').findOne({ _id: examId });
+    const exam = await db.collection('exams').findOne({ deleted: { $ne: true }, _id: examId });
     if (!exam) return res.status(404).json({ error: 'Exam not found' });
 
     await db.collection('exams').updateOne(
       { _id: examId },
-      { $set: { isArchived: false, manuallyUnarchived: true }, $unset: { batchLabel: '' } }
+      { $set: { updatedAt: new Date(),  isArchived: false, manuallyUnarchived: true }, $unset: { batchLabel: '' } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -391,7 +390,7 @@ app.put('/api/exams/:id/batch-name', async (req, res) => {
     if (!batchLabel) return res.status(400).json({ error: 'Batch label is required' });
     await db.collection('exams').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { batchLabel } }
+      { $set: { updatedAt: new Date(),  batchLabel } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -402,7 +401,7 @@ app.put('/api/exams/:id/batch-name', async (req, res) => {
 // Get distinct archived exam info for suggestions
 app.get('/api/archived-exam-names', async (req, res) => {
   try {
-    const archived = await db.collection('exams').find({ isArchived: true }).toArray();
+    const archived = await db.collection('exams').find({ deleted: { $ne: true }, isArchived: true }).toArray();
     // Group by baseName, return one representative per baseName
     const nameMap = {};
     archived.forEach(ex => {
@@ -421,9 +420,9 @@ app.get('/api/archived-exam-names', async (req, res) => {
 app.delete('/api/exams/:id', async (req, res) => {
   try {
     const examId = new ObjectId(req.params.id);
-    await db.collection('mocks').deleteMany({ examId });
-    await db.collection('goals').deleteMany({ examId });
-    await db.collection('exams').deleteOne({ _id: examId });
+    await db.collection('mocks').updateMany({ examId }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
+    await db.collection('goals').updateMany({ examId }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
+    await db.collection('exams').updateOne({ _id: examId }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -436,7 +435,7 @@ app.delete('/api/exams/:id', async (req, res) => {
 app.get('/api/exams/:id/mocks', async (req, res) => {
   try {
     const mocks = await db.collection('mocks')
-      .find({ examId: new ObjectId(req.params.id) })
+      .find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id) })
       .sort({ mockNumber: 1 })
       .toArray();
     res.json(mocks);
@@ -450,7 +449,7 @@ app.post('/api/exams/:id/mocks', async (req, res) => {
   try {
     const examId = new ObjectId(req.params.id);
     const lastMock = await db.collection('mocks')
-      .find({ examId })
+      .find({ deleted: { $ne: true }, examId })
       .sort({ mockNumber: -1 })
       .limit(1)
       .toArray();
@@ -474,7 +473,7 @@ app.post('/api/exams/:id/mocks', async (req, res) => {
       createdAt: new Date()
     };
 
-    const result = await db.collection('mocks').insertOne(mock);
+    const result = await db.collection('mocks').insertOne({ ...mock, updatedAt: new Date() });
     mock._id = result.insertedId;
     res.status(201).json(mock);
   } catch (err) {
@@ -524,7 +523,7 @@ app.put('/api/mocks/:id', async (req, res) => {
 
     await db.collection('mocks').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updates }
+      { $set: { ...updates, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -548,7 +547,7 @@ app.get('/api/exams/:id/mock-platforms', async (req, res) => {
 // Clear all mocks for exam
 app.delete('/api/exams/:id/mocks/all', async (req, res) => {
   try {
-    await db.collection('mocks').deleteMany({ examId: new ObjectId(req.params.id) });
+    await db.collection('mocks').updateMany({ examId: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -558,7 +557,7 @@ app.delete('/api/exams/:id/mocks/all', async (req, res) => {
 // Delete mock
 app.delete('/api/mocks/:id', async (req, res) => {
   try {
-    await db.collection('mocks').deleteOne({ _id: new ObjectId(req.params.id) });
+    await db.collection('mocks').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -572,7 +571,7 @@ app.get('/api/exams/:id/goals', async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
     const goals = await db.collection('goals')
-      .find({ examId: new ObjectId(req.params.id), date })
+      .find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id), date })
       .sort({ order: 1, createdAt: 1 })
       .toArray();
     res.json(goals);
@@ -596,7 +595,7 @@ app.post('/api/exams/:id/goals', async (req, res) => {
       createdAt: new Date()
     };
 
-    const result = await db.collection('goals').insertOne(goal);
+    const result = await db.collection('goals').insertOne({ ...goal, updatedAt: new Date() });
     goal._id = result.insertedId;
     res.status(201).json(goal);
   } catch (err) {
@@ -607,12 +606,12 @@ app.post('/api/exams/:id/goals', async (req, res) => {
 // Toggle goal
 app.put('/api/goals/:id', async (req, res) => {
   try {
-    const goal = await db.collection('goals').findOne({ _id: new ObjectId(req.params.id) });
+    const goal = await db.collection('goals').findOne({ deleted: { $ne: true }, _id: new ObjectId(req.params.id) });
     if (!goal) return res.status(404).json({ error: 'Goal not found' });
 
     await db.collection('goals').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { completed: !goal.completed } }
+      { $set: { updatedAt: new Date(),  completed: !goal.completed } }
     );
     res.json({ success: true, completed: !goal.completed });
   } catch (err) {
@@ -623,7 +622,7 @@ app.put('/api/goals/:id', async (req, res) => {
 // Delete goal
 app.delete('/api/goals/:id', async (req, res) => {
   try {
-    await db.collection('goals').deleteOne({ _id: new ObjectId(req.params.id) });
+    await db.collection('goals').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -638,7 +637,7 @@ app.get('/api/exams/:id/goals/range', async (req, res) => {
     const { start, end } = req.query;
     if (!start || !end) return res.status(400).json({ error: 'start and end dates required' });
     const goals = await db.collection('goals')
-      .find({ examId: new ObjectId(req.params.id), date: { $gte: start, $lte: end } })
+      .find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id), date: { $gte: start, $lte: end } })
       .sort({ order: 1, createdAt: 1 })
       .toArray();
     res.json(goals);
@@ -661,7 +660,7 @@ app.put('/api/goals/:id/update', async (req, res) => {
     
     await db.collection('goals').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updates }
+      { $set: { ...updates, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -678,7 +677,7 @@ app.put('/api/exams/:id/goals/reorder', async (req, res) => {
     await Promise.all(updates.map(u => 
       db.collection('goals').updateOne(
         { _id: new ObjectId(u.id) },
-        { $set: { order: u.order } }
+        { $set: { updatedAt: new Date(),  order: u.order } }
       )
     ));
     res.json({ success: true });
@@ -702,7 +701,7 @@ app.post('/api/exams/:id/goals/date', async (req, res) => {
       order: Date.now(),
       createdAt: new Date()
     };
-    const result = await db.collection('goals').insertOne(goal);
+    const result = await db.collection('goals').insertOne({ ...goal, updatedAt: new Date() });
     goal._id = result.insertedId;
     res.status(201).json(goal);
   } catch (err) {
@@ -717,9 +716,9 @@ app.get('/api/exams/:id/entries/first', async (req, res) => {
   try {
     const examId = new ObjectId(req.params.id);
     const entry = await db.collection('completedEntries')
-      .findOne({ examId }, { sort: { date: 1 } });
+      .findOne({ deleted: { $ne: true }, examId }, { sort: { date: 1 } });
     const goal = await db.collection('goals')
-      .findOne({ examId }, { sort: { date: 1 } });
+      .findOne({ deleted: { $ne: true }, examId }, { sort: { date: 1 } });
 
     let firstDate = null;
     if (entry && goal) {
@@ -741,7 +740,7 @@ app.get('/api/exams/:id/entries', async (req, res) => {
   try {
     const date = req.query.date || new Date().toISOString().split('T')[0];
     const entries = await db.collection('completedEntries')
-      .find({ examId: new ObjectId(req.params.id), date })
+      .find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id), date })
       .sort({ order: 1, createdAt: -1 })
       .toArray();
     res.json(entries);
@@ -756,7 +755,7 @@ app.get('/api/exams/:id/entries/range', async (req, res) => {
     const { start, end } = req.query;
     if (!start || !end) return res.status(400).json({ error: 'start and end required' });
     const entries = await db.collection('completedEntries')
-      .find({ examId: new ObjectId(req.params.id), date: { $gte: start, $lte: end } })
+      .find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id), date: { $gte: start, $lte: end } })
       .sort({ createdAt: -1 })
       .toArray();
     res.json(entries);
@@ -769,7 +768,7 @@ app.get('/api/exams/:id/entries/range', async (req, res) => {
 app.get('/api/exams/:id/entries/attachments', async (req, res) => {
   try {
     const entries = await db.collection('completedEntries')
-      .find({ examId: new ObjectId(req.params.id), 'attachments.0': { $exists: true } })
+      .find({ deleted: { $ne: true }, examId: new ObjectId(req.params.id), 'attachments.0': { $exists: true } })
       .project({ _id: 1, date: 1, title: 1, attachments: 1 })
       .sort({ date: -1 })
       .toArray();
@@ -799,7 +798,7 @@ app.post('/api/exams/:id/entries', async (req, res) => {
       pageColor: pageColor || '',
       createdAt: new Date()
     };
-    const result = await db.collection('completedEntries').insertOne(entry);
+    const result = await db.collection('completedEntries').insertOne({ ...entry, updatedAt: new Date() });
     entry._id = result.insertedId;
     res.status(201).json(entry);
   } catch (err) {
@@ -818,7 +817,7 @@ app.put('/api/entries/:id', async (req, res) => {
     if (req.body.pageColor !== undefined) updates.pageColor = req.body.pageColor;
     await db.collection('completedEntries').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updates }
+      { $set: { ...updates, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) {
@@ -829,7 +828,7 @@ app.put('/api/entries/:id', async (req, res) => {
 // Delete entry
 app.delete('/api/entries/:id', async (req, res) => {
   try {
-    await db.collection('completedEntries').deleteOne({ _id: new ObjectId(req.params.id) });
+    await db.collection('completedEntries').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -845,7 +844,7 @@ app.put('/api/exams/:id/entries/reorder', async (req, res) => {
     await Promise.all(updates.map(u => 
       db.collection('completedEntries').updateOne(
         { _id: new ObjectId(u.id) },
-        { $set: { order: u.order } }
+        { $set: { updatedAt: new Date(),  order: u.order } }
       )
     ));
     res.json({ success: true });
@@ -891,7 +890,7 @@ app.post('/api/desk/profiles', async (req, res) => {
   try {
     const { name, color } = req.body;
     const profile = { name, color: color || '#a78bfa', order: Date.now(), createdAt: new Date() };
-    const result = await db.collection('deskProfiles').insertOne(profile);
+    const result = await db.collection('deskProfiles').insertOne({ ...profile, updatedAt: new Date() });
     profile._id = result.insertedId;
     res.status(201).json(profile);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -902,7 +901,7 @@ app.put('/api/desk/profiles/:id', async (req, res) => {
     const updates = {};
     if (req.body.name) updates.name = req.body.name;
     if (req.body.color) updates.color = req.body.color;
-    await db.collection('deskProfiles').updateOne({ _id: new ObjectId(req.params.id) }, { $set: updates });
+    await db.collection('deskProfiles').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { ...updates, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -915,7 +914,7 @@ app.put('/api/desk/profiles/action/reorder', async (req, res) => {
     await Promise.all(updates.map(u => 
       db.collection('deskProfiles').updateOne(
         { _id: new ObjectId(u.id) },
-        { $set: { order: u.order } }
+        { $set: { updatedAt: new Date(),  order: u.order } }
       )
     ));
     res.json({ success: true });
@@ -925,10 +924,10 @@ app.put('/api/desk/profiles/action/reorder', async (req, res) => {
 app.delete('/api/desk/profiles/:id', async (req, res) => {
   try {
     const profileId = req.params.id;
-    await db.collection('deskProfiles').deleteOne({ _id: new ObjectId(profileId) });
+    await db.collection('deskProfiles').updateOne({ _id: new ObjectId(profileId) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     // Cascade delete tasks and entries for this profile
-    await db.collection('goals').deleteMany({ examId: 'desk', profileId });
-    await db.collection('completedEntries').deleteMany({ examId: 'desk', profileId });
+    await db.collection('goals').updateMany({ examId: 'desk', profileId }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
+    await db.collection('completedEntries').updateMany({ examId: 'desk', profileId }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -938,7 +937,7 @@ app.put('/api/desk/profiles/:id/archive', async (req, res) => {
   try {
     await db.collection('deskProfiles').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { archived: true } }
+      { $set: { updatedAt: new Date(),  archived: true } }
     );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -949,7 +948,7 @@ app.put('/api/desk/profiles/:id/unarchive', async (req, res) => {
   try {
     await db.collection('deskProfiles').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { archived: false } }
+      { $set: { updatedAt: new Date(),  archived: false } }
     );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -965,7 +964,7 @@ app.get('/api/desk/goals', async (req, res) => {
 
     // Exclude goals from archived desk profiles when requested
     if (req.query.excludeArchived === 'true') {
-      const archivedProfiles = await db.collection('deskProfiles').find({ archived: true }).project({ _id: 1 }).toArray();
+      const archivedProfiles = await db.collection('deskProfiles').find({ deleted: { $ne: true }, archived: true }).project({ _id: 1 }).toArray();
       const archivedIds = archivedProfiles.map(p => p._id.toString());
       if (archivedIds.length > 0) {
         query.profileId = { $nin: archivedIds };
@@ -1001,7 +1000,7 @@ app.post('/api/desk/goals', async (req, res) => {
       order: Date.now(),
       createdAt: new Date()
     };
-    const result = await db.collection('goals').insertOne(goal);
+    const result = await db.collection('goals').insertOne({ ...goal, updatedAt: new Date() });
     goal._id = result.insertedId;
     res.status(201).json(goal);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1009,11 +1008,11 @@ app.post('/api/desk/goals', async (req, res) => {
 
 app.put('/api/desk/goals/:id', async (req, res) => {
   try {
-    const goal = await db.collection('goals').findOne({ _id: new ObjectId(req.params.id) });
+    const goal = await db.collection('goals').findOne({ deleted: { $ne: true }, _id: new ObjectId(req.params.id) });
     if (!goal) return res.status(404).json({ error: 'Goal not found' });
     await db.collection('goals').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: { completed: !goal.completed } }
+      { $set: { updatedAt: new Date(),  completed: !goal.completed } }
     );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1028,7 +1027,7 @@ app.put('/api/desk/goals/:id/update', async (req, res) => {
     if (req.body.endTime !== undefined) updates.endTime = req.body.endTime;
     await db.collection('goals').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updates }
+      { $set: { ...updates, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1036,7 +1035,7 @@ app.put('/api/desk/goals/:id/update', async (req, res) => {
 
 app.delete('/api/desk/goals/:id', async (req, res) => {
   try {
-    await db.collection('goals').deleteOne({ _id: new ObjectId(req.params.id) });
+    await db.collection('goals').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -1049,7 +1048,7 @@ app.put('/api/desk/goals/action/reorder', async (req, res) => {
     await Promise.all(updates.map(u =>
       db.collection('goals').updateOne(
         { _id: new ObjectId(u.id) },
-        { $set: { order: u.order } }
+        { $set: { updatedAt: new Date(),  order: u.order } }
       )
     ));
 
@@ -1092,7 +1091,7 @@ app.post('/api/desk/entries', async (req, res) => {
       pageColor: pageColor || '',
       createdAt: new Date()
     };
-    const result = await db.collection('completedEntries').insertOne(entry);
+    const result = await db.collection('completedEntries').insertOne({ ...entry, updatedAt: new Date() });
     entry._id = result.insertedId;
     res.status(201).json(entry);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1107,7 +1106,7 @@ app.put('/api/desk/entries/reorder', async (req, res) => {
     await Promise.all(updates.map(u => 
       db.collection('completedEntries').updateOne(
         { _id: new ObjectId(u.id) },
-        { $set: { order: u.order } }
+        { $set: { updatedAt: new Date(),  order: u.order } }
       )
     ));
     res.json({ success: true });
@@ -1126,7 +1125,7 @@ app.put('/api/desk/entries/:id', async (req, res) => {
     if (req.body.pageColor !== undefined) updates.pageColor = req.body.pageColor;
     await db.collection('completedEntries').updateOne(
       { _id: new ObjectId(req.params.id) },
-      { $set: updates }
+      { $set: { ...updates, updatedAt: new Date() } }
     );
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -1134,7 +1133,7 @@ app.put('/api/desk/entries/:id', async (req, res) => {
 
 app.delete('/api/desk/entries/:id', async (req, res) => {
   try {
-    await db.collection('completedEntries').deleteOne({ _id: new ObjectId(req.params.id) });
+    await db.collection('completedEntries').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });

@@ -224,6 +224,47 @@ async function restoreSnapshot(snapshotName, targetDb, client) {
 }
 
 /**
+ * Merge all data collections between local and atlas databases.
+ * Uses Document-Level Last-Write-Wins based on updatedAt.
+ */
+async function mergeCollections(localDb, atlasDb) {
+  for (const col of COLLECTIONS) {
+    const localDocs = await localDb.collection(col).find({}).toArray();
+    const atlasDocs = await atlasDb.collection(col).find({}).toArray();
+
+    const mergedDocsMap = new Map();
+
+    for (const doc of localDocs) {
+      mergedDocsMap.set(doc._id.toString(), doc);
+    }
+
+    for (const doc of atlasDocs) {
+      const existing = mergedDocsMap.get(doc._id.toString());
+      if (!existing) {
+        mergedDocsMap.set(doc._id.toString(), doc);
+      } else {
+        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+        const newTime = doc.updatedAt ? new Date(doc.updatedAt).getTime() : 0;
+        if (newTime > existingTime) {
+          mergedDocsMap.set(doc._id.toString(), doc);
+        }
+      }
+    }
+
+    const mergedDocs = Array.from(mergedDocsMap.values());
+
+    try { await localDb.collection(col).drop(); } catch {}
+    try { await atlasDb.collection(col).drop(); } catch {}
+    
+    if (mergedDocs.length > 0) {
+      await localDb.collection(col).insertMany(mergedDocs);
+      await atlasDb.collection(col).insertMany(mergedDocs);
+    }
+  }
+}
+
+
+/**
  * Check if a database has any data in the synced collections.
  */
 async function hasData(db) {
@@ -330,7 +371,7 @@ async function syncOnStartup(localDb, atlasDb, mode, localClient, atlasClient, d
   if (localHasData && !atlasHasData) {
     console.log('     → Atlas is empty — pushing local data to Atlas (first-time setup)');
     try {
-      await copyCollections(localDb, atlasDb);
+      await mergeCollections(localDb, atlasDb);
       const now = await setLastUpdated(localDb);
       await atlasDb.collection('_syncMeta').updateOne(
         { _id: 'sync' },
@@ -354,7 +395,7 @@ async function syncOnStartup(localDb, atlasDb, mode, localClient, atlasClient, d
   if (!localHasData && atlasHasData) {
     console.log('     → Local is empty — pulling Atlas data to local (new device setup)');
     try {
-      await copyCollections(atlasDb, localDb);
+      await mergeCollections(localDb, atlasDb);
       const now = await setLastUpdated(localDb);
       await atlasDb.collection('_syncMeta').updateOne(
         { _id: 'sync' },
@@ -386,7 +427,7 @@ async function syncOnStartup(localDb, atlasDb, mode, localClient, atlasClient, d
     );
     // Push local to Atlas as initial source of truth
     try {
-      await copyCollections(localDb, atlasDb);
+      await mergeCollections(localDb, atlasDb);
       console.log('     ✓ Local data pushed to Atlas as initial sync');
     } catch (err) {
       console.error('     ✗ Initial sync failed:', err.message);
@@ -410,7 +451,7 @@ async function syncOnStartup(localDb, atlasDb, mode, localClient, atlasClient, d
       const snapName = await createSnapshot(localDb, localClient, dbName);
       if (snapName) ledgerEntry.snapshotsBefore.push(snapName);
       
-      await copyCollections(atlasDb, localDb);
+      await mergeCollections(localDb, atlasDb);
       const now = atlasUpdated;
       await localDb.collection('_syncMeta').updateOne(
         { _id: 'sync' },
@@ -461,7 +502,7 @@ async function pushOnShutdown(localDb, atlasDb, localClient, atlasClient, dbName
     const snapName = await createSnapshot(atlasDb, atlasClient, dbName);
     
     // Copy local → Atlas
-    await copyCollections(localDb, atlasDb);
+    await mergeCollections(localDb, atlasDb);
     
     // Sync the timestamp
     const localMeta = await getLastUpdated(localDb);
@@ -504,7 +545,7 @@ async function manualPush(localDb, atlasDb, localClient, atlasClient, dbName) {
   const snapName = await createSnapshot(atlasDb, atlasClient, dbName);
 
   // Copy local → Atlas
-  await copyCollections(localDb, atlasDb);
+  await mergeCollections(localDb, atlasDb);
 
   // Sync timestamps
   const now = await setLastUpdated(localDb);
@@ -549,7 +590,7 @@ async function manualPull(localDb, atlasDb, localClient, atlasClient, dbName) {
   const snapName = await createSnapshot(localDb, localClient, dbName);
 
   // Copy Atlas → local
-  await copyCollections(atlasDb, localDb);
+  await mergeCollections(localDb, atlasDb);
 
   // Sync timestamps
   const atlasMeta = await getLastUpdated(atlasDb);
@@ -596,6 +637,7 @@ module.exports = {
   listSnapshots,
   restoreSnapshot,
   getLedger,
+  logToLedger,
   createSnapshot,
   pruneSnapshots,
   COLLECTIONS

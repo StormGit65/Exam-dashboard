@@ -516,7 +516,7 @@
     async function manualPull() {
       showConfirmModal(
         'Pull from Atlas', 
-        'Are you sure you want to pull from Atlas?\n\nThis will overwrite your local database with data from Atlas. A snapshot of your local data will be created first.',
+        'Are you sure you want to pull from Atlas?\n\nBecause of the new Document-Level Merge Engine, this will cleanly merge any offline edits from Atlas into your local database without overwriting your local edits. A snapshot of your local data will be created first as a safety net.',
         async () => {
           const btn = document.getElementById('pullBtn');
           btn.disabled = true;
