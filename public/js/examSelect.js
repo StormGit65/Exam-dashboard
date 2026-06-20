@@ -197,8 +197,8 @@ function createExamCard(exam, isArchived) {
     <div class="exam-card-actions">
       ${!isArchived ? `<button class="archive-btn" onclick="event.stopPropagation(); openArchiveModal('${exam._id}', 'archive')" title="Archive Exam">⚑</button>` : ''}
       ${isArchived ? `<button class="unarchive-btn" onclick="event.stopPropagation(); openArchiveModal('${exam._id}', 'unarchive')" title="Restore to Active">↩</button>` : ''}
-      ${isArchived ? `<button class="batch-edit-btn" onclick="event.stopPropagation(); openBatchNameModal('${exam._id}', '${(exam.batchLabel || '').replace(/'/g, "\\'")}')" title="Edit Batch Label">✎</button>` : ''}
-      <button class="delete-btn" onclick="event.stopPropagation(); openDeleteModal('${exam._id}')" title="Delete Exam">✕</button>
+      ${isArchived ? `<button class="batch-edit-btn" onclick="event.stopPropagation(); openBatchNameModal('${exam._id}', '${(exam.batchLabel || '').replace(/'/g, "\\'")}')" title="Edit Batch Label"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>` : ''}
+      <button class="delete-btn" onclick="event.stopPropagation(); openDeleteModal('${exam._id}')" title="Delete Exam"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
     <div class="exam-name">${exam.name}</div>
     ${batchLabel ? `<div class="exam-batch-label">${batchLabel}</div>` : ''}

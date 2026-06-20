@@ -140,8 +140,8 @@ function renderMocks(mocks) {
           ${sectionsTagHtml}
         </div>
         <div style="display:flex;gap:4px;">
-          <button class="mock-edit" onclick="openEditMockModal('${uid}')" title="Edit">✎</button>
-          <button class="mock-delete" onclick="deleteMock('${uid}')" title="Delete">✕</button>
+          <button class="mock-edit" onclick="openEditMockModal('${uid}')" title="Edit"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+          <button class="mock-delete" onclick="deleteMock('${uid}')" title="Delete"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
       <div class="mock-pills">

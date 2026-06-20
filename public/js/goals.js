@@ -494,8 +494,8 @@ function renderTaskList(goals, dk) {
         <div class="task-actions">
           <button class="task-transfer-prev-btn" onclick="transferGoalPrevCal('${g._id}', '${encodeURIComponent(g.text)}')" title="Transfer to Previous Day">←</button>
           <button class="task-transfer-btn" onclick="transferGoalCal('${g._id}', '${encodeURIComponent(g.text)}')" title="Transfer to Next Day">→</button>
-          <button class="task-edit-btn" onclick="startEditTask(this.closest('.task-item').querySelector('.task-text'), '${g._id}')" title="Edit">✎</button>
-          <button class="task-delete-btn" onclick="deleteGoalCal('${g._id}', '${encodeURIComponent(g.text)}')" title="Delete">✕</button>
+          <button class="task-edit-btn" onclick="startEditTask(this.closest('.task-item').querySelector('.task-text'), '${g._id}')" title="Edit"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+          <button class="task-delete-btn" onclick="deleteGoalCal('${g._id}', '${encodeURIComponent(g.text)}')" title="Delete"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>`;
       container.appendChild(el);
     });
@@ -623,8 +623,8 @@ function renderEntries(entries) {
         <div class="entry-card-actions" onclick="event.stopPropagation()">
           <button onclick="transferEntryPrevCal('${e._id}', '${encodeURIComponent(e.title)}')" title="Transfer to Previous Day">←</button>
           <button onclick="transferEntryCal('${e._id}', '${encodeURIComponent(e.title)}')" title="Transfer to Next Day">→</button>
-          <button class="entry-edit" onclick="editEntry('${e._id}')" title="Edit">✎</button>
-          <button class="entry-delete" onclick="promptDeleteEntry('${e._id}')" title="Delete">✕</button>
+          <button class="entry-edit" onclick="editEntry('${e._id}')" title="Edit"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+          <button class="entry-delete" onclick="promptDeleteEntry('${e._id}')" title="Delete"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
       <div class="entry-card-body" style="${pageColorStyle}">${normalizedContent}</div>`;
@@ -898,7 +898,7 @@ function startEditTask(span, id) {
         <select class="time-select edit-eh" style="padding:2px; font-size:.8rem; border-radius:4px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary);">${hrOptions(eh)}</select><span style="color:var(--text-muted)">:</span><select class="time-select edit-em" style="padding:2px; font-size:.8rem; border-radius:4px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary);">${minOptions(em)}</select>
       </div>
       <button class="btn btn-primary btn-sm" onclick="finishEditTask(this.closest('.task-edit-row'), '${id}')" style="padding:4px 8px; font-size:.8rem;">Save</button>
-      <button class="btn btn-secondary btn-sm" onclick="cancelEditTask()" style="padding:4px 8px; font-size:.8rem;">✕</button>
+      <button class="btn btn-secondary btn-sm" onclick="cancelEditTask()" style="padding:4px 8px; font-size:.8rem; display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
   `;
   span.querySelector('input').focus();

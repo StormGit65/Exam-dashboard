@@ -778,8 +778,8 @@ function renderDeskTaskItem(t) {
       </label>
       <span class="desk-task-text" data-tasktext="${encodeURIComponent(t.text)}" ondblclick="startEditDeskTask(this, '${t._id}')">${t.text}</span>
       <div class="desk-task-actions">
-        <button class="task-edit-btn" onclick="startEditDeskTask(this.closest('.desk-task-item').querySelector('.desk-task-text'), '${t._id}')" title="Edit">✎</button>
-        <button class="desk-delete-btn" onclick="deleteDeskTask('${t._id}', '${encodeURIComponent(t.text)}')" title="Delete">✕</button>
+        <button class="task-edit-btn" onclick="startEditDeskTask(this.closest('.desk-task-item').querySelector('.desk-task-text'), '${t._id}')" title="Edit"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+        <button class="desk-delete-btn" onclick="deleteDeskTask('${t._id}', '${encodeURIComponent(t.text)}')" title="Delete"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
       </div>
     </div>`;
 }
@@ -833,7 +833,7 @@ function startEditDeskTask(span, id) {
     <div class="desk-task-edit-row" style="display: flex; gap: 6px; width: 100%; margin-top: 4px; align-items: center;">
       <input class="task-edit-input" value="${rawText}" style="flex:1; padding:4px 8px; border-radius:4px; background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); font-size:.85rem;" onkeydown="if(event.key==='Enter')finishEditDeskTask(this.closest('.desk-task-edit-row'),'${id}');if(event.key==='Escape')cancelEditDeskTask()">
       <button class="btn btn-primary btn-sm" onclick="finishEditDeskTask(this.closest('.desk-task-edit-row'), '${id}')" style="padding:4px 8px; font-size:.8rem;">Save</button>
-      <button class="btn btn-secondary btn-sm" onclick="cancelEditDeskTask()" style="padding:4px 8px; font-size:.8rem;">✕</button>
+      <button class="btn btn-secondary btn-sm" onclick="cancelEditDeskTask()" style="padding:4px 8px; font-size:.8rem; display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
   `;
   span.querySelector('input').focus();
@@ -949,8 +949,8 @@ function renderDeskEntries() {
           ${e.title || 'Untitled'}
         </div>
         <div class="desk-entry-actions">
-          <button onclick="event.stopPropagation();editDeskEntry('${e._id}')" title="Edit">✎</button>
-          <button onclick="event.stopPropagation();deleteDeskEntry('${e._id}', '${encodeURIComponent(e.title || 'Untitled')}')" title="Delete" style="color:var(--danger)">✕</button>
+          <button onclick="event.stopPropagation();editDeskEntry('${e._id}')" title="Edit"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
+          <button onclick="event.stopPropagation();deleteDeskEntry('${e._id}', '${encodeURIComponent(e.title || 'Untitled')}')" title="Delete" style="color:var(--danger); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
         </div>
       </div>
       <div class="desk-entry-body" style="${pageColorStyle}">${normalizedContent}</div>

@@ -282,7 +282,7 @@ function addSectionRow(data) {
   row.innerHTML = `
     <div class="sr-name">
       <input type="text" placeholder="Section name" value="${defaultName}" style="background:transparent;border:none;color:var(--text-primary);font-size:.85rem;font-weight:600;outline:none;font-family:inherit" class="sr-name-input">
-      <button class="sr-delete" onclick="removeSectionRow(this)">✕</button>
+      <button class="sr-delete" onclick="removeSectionRow(this)"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
     </div>
     <div class="sr-fields">
       <div><label>Total Questions</label><input type="number" class="sr-total-q" placeholder="40" value="${data ? (data.totalQuestions || '') : ''}" oninput="calcMaxMarks(this)"></div>
@@ -1086,7 +1086,7 @@ function renderGoals(goals, isNextDay) {
         d.dataset.order = idx;
         d.innerHTML = `<input type="checkbox" ${g.completed ? 'checked' : ''} onchange="${toggleFn}"><span class="goal-text" title="${tooltip.replace(/"/g, '&quot;')}">${deskBadge}${g.text}</span>`;
       } else {
-        d.innerHTML = `<input type="checkbox" ${g.completed ? 'checked' : ''} onchange="${toggleFn}"><span class="goal-text" title="${tooltip.replace(/"/g, '&quot;')}">${deskBadge}${g.text}</span><button class="goal-delete" onclick="deleteGoal('${g._id}')">✕</button>`;
+        d.innerHTML = `<input type="checkbox" ${g.completed ? 'checked' : ''} onchange="${toggleFn}"><span class="goal-text" title="${tooltip.replace(/"/g, '&quot;')}">${deskBadge}${g.text}</span><button class="goal-delete" onclick="deleteGoal('${g._id}')"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>`;
       }
       el.appendChild(d);
     });
