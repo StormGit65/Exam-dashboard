@@ -4472,6 +4472,87 @@ a.docs-item-name:hover {
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  position: relative;
+}
+
+.exam-jumps-dropdown {
+  position: relative;
+}
+
+.exam-jumps-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.exam-jumps-toggle:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: var(--border-light);
+}
+
+.exam-jumps-toggle svg {
+  transition: transform 0.2s ease;
+}
+
+.exam-jumps-menu.active ~ .exam-jumps-toggle svg,
+.exam-jumps-toggle:has(+ .exam-jumps-menu.active) svg {
+  transform: rotate(180deg);
+}
+
+.exam-jumps-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 100;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-light);
+  border-radius: 10px;
+  padding: 12px;
+  min-width: 260px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-5px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.exam-jumps-menu.active {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+.exam-jumps-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exam-jumps-title {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.exam-jumps-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 24px; /* so empty lists still have drop targets */
 }
 
 .cal-exam-jump-btn {

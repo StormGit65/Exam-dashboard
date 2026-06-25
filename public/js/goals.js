@@ -97,7 +97,7 @@ async function refreshAllExamsData() {
   try {
     const res = await fetch('/api/exams');
     const exams = await res.json();
-    allExamsData = exams.filter(e => e.examDate);
+    allExamsData = exams;
   } catch { allExamsData = []; }
 }
 
@@ -258,9 +258,9 @@ async function renderCalendar() {
       if (firstEntryObj && dayObj >= firstEntryObj && dayObj <= todayObj) cls.push('note-interval');
       if (examObj && dayObj > todayObj && dayObj < examObj) cls.push('exam-interval');
 
-      const dayExams = allExamsData.filter(ex => dateKey(new Date(ex.examDate)) === dk);
+      const dayExams = allExamsData.filter(ex => ex.examDate && dateKey(new Date(ex.examDate)) === dk);
       if (dayExams.length > 0) {
-        const allArchived = dayExams.every(ex => ex.isArchived);
+        const allArchived = dayExams.every(ex => ex.archived);
         cls.push(allArchived ? 'exam-archived' : 'exam-day');
       }
       const dayMocks = mocksByDate[dk] || [];
@@ -283,7 +283,7 @@ async function renderCalendar() {
       const overflowCount = dayExams.length - 2;
       visibleExams.forEach(exam => {
         const timeHtml = exam.examTimeRange ? `<br><span class="exam-time-range" style="font-size: 0.85em; opacity: 0.9;">${exam.examTimeRange}</span>` : '';
-        const archivedTag = exam.isArchived ? `<br><span style="font-size: 0.75em; opacity: 0.7; font-style: italic;">Archived</span>` : '';
+        const archivedTag = exam.archived ? `<br><span style="font-size: 0.75em; opacity: 0.7; font-style: italic;">Archived</span>` : '';
         const colorStyle = `style="color: ${exam.color || 'var(--accent)'};"`;
         dots += `<div class="cal-exam-label" ${colorStyle}>${exam.name}${timeHtml}${archivedTag}</div>`;
       });
@@ -326,9 +326,9 @@ async function renderCalendar() {
       if (dk === todayKey) cls.push('today');
       if (dk === selKey) cls.push('selected');
       // Check ALL exams for this day
-      const dayExams = allExamsData.filter(ex => dateKey(new Date(ex.examDate)) === dk);
+      const dayExams = allExamsData.filter(ex => ex.examDate && dateKey(new Date(ex.examDate)) === dk);
       if (dayExams.length > 0) {
-        const allArchived = dayExams.every(ex => ex.isArchived);
+        const allArchived = dayExams.every(ex => ex.archived);
         cls.push(allArchived ? 'exam-archived' : 'exam-day');
       }
 
@@ -355,7 +355,7 @@ async function renderCalendar() {
       const overflowCount = dayExams.length - 2;
       visibleExams.forEach(exam => {
         const timeHtml = exam.examTimeRange ? `<br><span class="exam-time-range" style="font-size: 0.85em; opacity: 0.9;">${exam.examTimeRange}</span>` : '';
-        const archivedTag = exam.isArchived ? `<br><span style="font-size: 0.75em; opacity: 0.7; font-style: italic;">Archived</span>` : '';
+        const archivedTag = exam.archived ? `<br><span style="font-size: 0.75em; opacity: 0.7; font-style: italic;">Archived</span>` : '';
         const colorStyle = `style="color: ${exam.color || 'var(--accent)'};"`;
         taskHtml += `<div class="cal-exam-label week-view-exam-label" ${colorStyle}>${exam.name}${timeHtml}${archivedTag}</div>`;
       });
@@ -1868,7 +1868,8 @@ function renderExamJumpButtons() {
   if (!container) return;
 
   // Persist custom order in memory between renders
-  if (!window._examJumpOrder) window._examJumpOrder = null;
+  if (!window._examJumpOrderActive) window._examJumpOrderActive = null;
+  if (!window._examJumpOrderArchived) window._examJumpOrderArchived = null;
 
   // Build sorted list (by date/time) as default order
   const defaultSorted = [...allExamsData].sort((a, b) => {
@@ -1887,37 +1888,84 @@ function renderExamJumpButtons() {
     return 0;
   });
 
-  // Apply saved order if available and IDs still match
-  let sorted = defaultSorted;
-  if (window._examJumpOrder && window._examJumpOrder.length === defaultSorted.length) {
-    const idSet = new Set(defaultSorted.map(e => e._id));
-    if (window._examJumpOrder.every(id => idSet.has(id))) {
-      const idToExam = {};
-      defaultSorted.forEach(e => idToExam[e._id] = e);
-      sorted = window._examJumpOrder.map(id => idToExam[id]).filter(Boolean);
+  const activeExams = defaultSorted.filter(e => !e.archived);
+  const archivedExams = defaultSorted.filter(e => e.archived);
+
+  const applyOrder = (exams, order) => {
+    if (order && order.length === exams.length) {
+      const idSet = new Set(exams.map(e => e._id));
+      if (order.every(id => idSet.has(id))) {
+        const idToExam = {};
+        exams.forEach(e => idToExam[e._id] = e);
+        return order.map(id => idToExam[id]).filter(Boolean);
+      }
     }
+    return exams;
+  };
+
+  const sortedActive = applyOrder(activeExams, window._examJumpOrderActive);
+  const sortedArchived = applyOrder(archivedExams, window._examJumpOrderArchived);
+
+  container.innerHTML = `
+    <div class="exam-jumps-dropdown">
+      <button class="exam-jumps-toggle" onclick="this.nextElementSibling.classList.toggle('active')">
+        Jump to Exam
+        <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </button>
+      <div class="exam-jumps-menu">
+        <div class="exam-jumps-section">
+          <div class="exam-jumps-title">Active Exams</div>
+          <div class="exam-jumps-list" id="activeJumpsList"></div>
+        </div>
+        ${archivedExams.length > 0 ? `
+        <div class="exam-jumps-section">
+          <div class="exam-jumps-title">Archived Exams</div>
+          <div class="exam-jumps-list" id="archivedJumpsList"></div>
+        </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+
+  // Close menu on click outside
+  if (!window._examJumpDropdownListener) {
+    document.addEventListener('click', (e) => {
+      const dropdown = document.querySelector('.exam-jumps-dropdown');
+      if (dropdown && !dropdown.contains(e.target)) {
+        const menu = dropdown.querySelector('.exam-jumps-menu');
+        if (menu) menu.classList.remove('active');
+      }
+    });
+    window._examJumpDropdownListener = true;
   }
 
-  container.innerHTML = '';
-  sorted.forEach(exam => {
-    if (!exam.examDate) return;
+  const activeList = document.getElementById('activeJumpsList');
+  const archivedList = document.getElementById('archivedJumpsList');
+
+  const createBtn = (exam, listContainer) => {
     const btn = document.createElement('button');
     btn.className = 'cal-exam-jump-btn';
     btn.dataset.examId = exam._id;
-    btn.style.borderColor = exam.color || 'var(--accent)';
-    btn.style.color = exam.color || 'var(--accent)';
+    // Apply accent colors with opacity for background, full color for text and border
+    btn.style.backgroundColor = exam.color ? exam.color + '20' : 'rgba(255,255,255,0.05)';
+    btn.style.borderColor = exam.color ? exam.color + '50' : 'var(--border)';
+    btn.style.color = exam.color || 'var(--text-primary)';
+    
     btn.textContent = exam.name;
-    btn.title = `Jump to ${exam.name} exam day — drag to reorder`;
+    btn.title = exam.examDate ? `Jump to ${exam.name} exam day — drag to reorder` : `No date set for ${exam.name} — drag to reorder`;
     btn.draggable = true;
 
-    // Jump on click (only if not a drag)
+    // Jump on click
     btn.addEventListener('click', () => {
       if (btn._wasDragged) { btn._wasDragged = false; return; }
-      const d = new Date(exam.examDate);
-      calCurrentDate = new Date(d);
-      calSelectedDate = new Date(d);
-      renderCalendar();
-      selectDate(calSelectedDate);
+      if (exam.examDate) {
+        const d = new Date(exam.examDate);
+        calCurrentDate = new Date(d);
+        calSelectedDate = new Date(d);
+        renderCalendar();
+        selectDate(calSelectedDate);
+      }
+      document.querySelector('.exam-jumps-menu').classList.remove('active');
     });
 
     // Drag events
@@ -1930,23 +1978,27 @@ function renderExamJumpButtons() {
     });
     btn.addEventListener('dragend', () => {
       btn.classList.remove('dragging');
-      container.querySelectorAll('.cal-exam-jump-btn').forEach(b => b.classList.remove('drag-over'));
+      listContainer.querySelectorAll('.cal-exam-jump-btn').forEach(b => b.classList.remove('drag-over'));
       // Save new order
-      window._examJumpOrder = [...container.querySelectorAll('.cal-exam-jump-btn')].map(b => b.dataset.examId);
+      if (listContainer.id === 'activeJumpsList') {
+        window._examJumpOrderActive = [...listContainer.querySelectorAll('.cal-exam-jump-btn')].map(b => b.dataset.examId);
+      } else {
+        window._examJumpOrderArchived = [...listContainer.querySelectorAll('.cal-exam-jump-btn')].map(b => b.dataset.examId);
+      }
     });
     btn.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
       if (btn === _examJumpDragSrc) return;
-      container.querySelectorAll('.cal-exam-jump-btn').forEach(b => b.classList.remove('drag-over'));
+      listContainer.querySelectorAll('.cal-exam-jump-btn').forEach(b => b.classList.remove('drag-over'));
       btn.classList.add('drag-over');
       // Reorder in DOM
-      const allBtns = [...container.querySelectorAll('.cal-exam-jump-btn')];
+      const allBtns = [...listContainer.querySelectorAll('.cal-exam-jump-btn')];
       const srcIdx = allBtns.indexOf(_examJumpDragSrc);
       const tgtIdx = allBtns.indexOf(btn);
       if (srcIdx !== -1 && tgtIdx !== -1) {
-        if (srcIdx < tgtIdx) container.insertBefore(_examJumpDragSrc, btn.nextSibling);
-        else container.insertBefore(_examJumpDragSrc, btn);
+        if (srcIdx < tgtIdx) listContainer.insertBefore(_examJumpDragSrc, btn.nextSibling);
+        else listContainer.insertBefore(_examJumpDragSrc, btn);
       }
     });
     btn.addEventListener('dragleave', () => btn.classList.remove('drag-over'));
@@ -1955,8 +2007,13 @@ function renderExamJumpButtons() {
       btn.classList.remove('drag-over');
     });
 
-    container.appendChild(btn);
-  });
+    listContainer.appendChild(btn);
+  };
+
+  sortedActive.forEach(ex => createBtn(ex, activeList));
+  if (archivedList) {
+    sortedArchived.forEach(ex => createBtn(ex, archivedList));
+  }
 }
 
 // ─── Paste handler for clipboard images ───

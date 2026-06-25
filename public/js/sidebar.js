@@ -104,8 +104,8 @@ setTimeout(detectOverflow, 500);
   // Restore saved split
   const savedNavHeight = localStorage.getItem('examprep-sidebar-split');
   if (savedNavHeight) {
-    nav.style.height = savedNavHeight + 'px';
-    nav.style.flex = 'none';
+    nav.style.flex = `0 1 ${savedNavHeight}px`;
+    nav.style.height = 'auto';
   }
 
   divider.addEventListener('mousedown', onStart);
@@ -141,8 +141,8 @@ setTimeout(detectOverflow, 500);
     const maxNav = available - minGoals;
 
     let newNavHeight = Math.max(minNav, Math.min(maxNav, startNavHeight + delta));
-    nav.style.height = newNavHeight + 'px';
-    nav.style.flex = 'none';
+    nav.style.flex = `0 1 ${newNavHeight}px`;
+    nav.style.height = 'auto';
   }
 
   function onEnd() {
