@@ -1,6 +1,6 @@
 # ⛩️ Kaizen Dashboard
 
-Kaizen Dashboard is a premium, offline-first Exam Preparation and Study Tracker designed to help students organize, analyze, and optimize their preparation journey. Built with Node.js, Express, and MongoDB, it provides comprehensive tracking tools for mock tests, daily study goals, journals, and dedicated desks/profiles.
+Kaizen Dashboard is a premium, offline-first Exam Preparation and Study Tracker designed to help students organize, analyze, and optimize their preparation journey. Built with Node.js, Express, and MongoDB, it provides comprehensive tracking tools for mock tests, daily study goals, journals, dedicated desks/profiles, and a secure password vault.
 
 ---
 
@@ -30,6 +30,15 @@ Kaizen Dashboard is a premium, offline-first Exam Preparation and Study Tracker 
 
 ### 🖥️ My Desk Profiles
 - Create custom profiles or study workspaces (e.g., separate desks for different subjects or general productivity tasks) outside of specific exams.
+
+### 🔐 Password Vault
+- **Deterministic Password Generator**: Generate strong, reproducible passwords from a memorable quote, email, and preferred symbols — powered by the [StormPASS](https://stormpass.netlify.app) algorithm.
+- **Three Password Variants**: Full (max strength), Short (12-char), and Shortest (8-char) versions for different site requirements.
+- **AES-256-GCM Encryption**: All vault data is encrypted server-side using a master key stored in `.env`, with PBKDF2 key derivation (100k iterations).
+- **Import Old Vaults**: Upload existing StormPASS `.json` vault files — the server decrypts with your old master password and re-encrypts with the new key.
+- **Download All**: Export your entire decrypted vault as a JSON file after verifying the master key.
+- **Search, Filter & Sort**: Find passwords quickly by email, app name, or account type.
+- **Synced**: Vault entries sync between local and Atlas just like all other data.
 
 ### ☁️ Cloud Sync (MongoDB Atlas)
 - **Offline-First**: App always runs against a local MongoDB for speed and offline capability.
@@ -84,6 +93,10 @@ Make sure you have the following installed on your machine:
    MONGO_ATLAS_URI=mongodb+srv://<user>:<pass>@<cluster>.mongodb.net/?retryWrites=true&w=majority
 
    PORT=3000
+
+   # Password Vault — master key for encrypting/decrypting stored passwords
+   # ⚠ Changing this after saving passwords will make existing entries unreadable!
+   VAULT_MASTER_KEY=your-secret-vault-key-here
    ```
 
 3. Seed the database with initial sample data (optional):
@@ -171,12 +184,20 @@ The utility requires `tkinter` (Python's GUI framework) and MongoDB database too
 ```
 ├── public/                 # Frontend assets
 │   ├── css/                # Styling (styles.css)
-│   ├── js/                 # Client-side JavaScript (dashboard, timer, suntime, etc.)
-│   ├── index.html          # Main portal
+│   ├── js/                 # Client-side JavaScript
+│   │   ├── dashboard.js    # Dashboard analytics & charts
+│   │   ├── goals.js        # Daily goals & journal
+│   │   ├── mocks.js        # Milestone tracking
+│   │   ├── vault.js        # Password vault UI & generator
+│   │   ├── sidebar.js      # Theme toggle & sidebar logic
+│   │   └── ...             # timer, suntime, desk, examSelect
+│   ├── index.html          # Main portal (goal selection)
 │   ├── dashboard.html      # Detailed exam dashboard
+│   ├── vault.html          # Password vault page
 │   └── sync.html           # Database sync management page
+├── props/                  # StormPASS reference code & vault files (git-ignored)
 ├── backup/                 # Saved database backups (git-ignored)
-├── uploads/                # Directory for user-uploaded attachments (git-ignored)
+├── uploads/                # User-uploaded attachments (git-ignored)
 ├── .env.example            # Environment variable template
 ├── .env                    # Your local environment variables (git-ignored)
 ├── sync.js                 # Database sync engine (local ↔ Atlas)

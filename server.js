@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const { MongoClient, ObjectId } = require('mongodb');
+const { webcrypto } = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -213,6 +214,7 @@ app.post('/api/exams', async (req, res) => {
       examTimeRange: examTimeRange || '',
       isArchived: false,
       sections: sections || [],
+      order: Date.now(),
       createdAt: new Date()
     };
 
@@ -411,6 +413,25 @@ app.get('/api/archived-exam-names', async (req, res) => {
       }
     });
     res.json(Object.values(nameMap));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+// Reorder exams
+app.put('/api/exams/reorder', async (req, res) => {
+  try {
+    const { updates } = req.body;
+    if (!updates || !Array.isArray(updates)) return res.status(400).json({ error: 'Updates array is required' });
+
+    await Promise.all(updates.map(u => 
+      db.collection('exams').updateOne(
+        { _id: new ObjectId(u.id) },
+        { $set: { updatedAt: new Date(),  order: u.order } }
+      )
+    ));
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1135,6 +1156,196 @@ app.delete('/api/desk/entries/:id', async (req, res) => {
   try {
     await db.collection('completedEntries').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { updatedAt: new Date(),  deleted: true, updatedAt: new Date() } });
     res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ─── VAULT API ROUTES ───────────────────────────────────────
+
+async function getVaultKey(masterKey) {
+  const encoder = new TextEncoder();
+  const keyMaterial = await webcrypto.subtle.importKey(
+    'raw',
+    encoder.encode(masterKey),
+    { name: 'PBKDF2' },
+    false,
+    ['deriveBits', 'deriveKey']
+  );
+  return webcrypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt: encoder.encode('password-manager-salt'), iterations: 100000, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+async function encryptField(text, key) {
+  if (!text) return text;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const iv = webcrypto.getRandomValues(new Uint8Array(12));
+  const encrypted = await webcrypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  const combined = new Uint8Array(iv.length + encrypted.byteLength);
+  combined.set(iv);
+  combined.set(new Uint8Array(encrypted), iv.length);
+  return Buffer.from(combined).toString('base64');
+}
+
+async function decryptField(base64Str, key) {
+  if (!base64Str) return base64Str;
+  const combined = new Uint8Array(Buffer.from(base64Str, 'base64'));
+  const iv = combined.slice(0, 12);
+  const encrypted = combined.slice(12);
+  const decrypted = await webcrypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, encrypted);
+  return new TextDecoder().decode(decrypted);
+}
+
+const VAULT_SENSITIVE_FIELDS = ['password', 'shortPassword', 'shortestPassword', 'email', 'appName', 'userQuote', 'preferredNumbers', 'preferredSymbols', 'extraFull', 'extraShort', 'extraShortest'];
+
+app.get('/vault', (req, res) => res.sendFile(path.join(__dirname, 'public', 'vault.html')));
+
+app.post('/api/vault/verify-key', (req, res) => {
+  if (req.body.key === process.env.VAULT_MASTER_KEY) res.json({ success: true });
+  else res.status(401).json({ error: 'Invalid master key' });
+});
+
+function requireVaultKey(req, res, next) {
+  const clientKey = req.headers['x-vault-key'] || req.query.key;
+  if (!clientKey || clientKey !== process.env.VAULT_MASTER_KEY) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid master key' });
+  }
+  next();
+}
+
+app.get('/api/vault/passwords', requireVaultKey, async (req, res) => {
+  try {
+    const passwords = await db.collection('vault').find({ deleted: { $ne: true } }).toArray();
+    const key = await getVaultKey(process.env.VAULT_MASTER_KEY);
+    
+    // Decrypt fields before sending to client
+    for (let p of passwords) {
+      for (let field of VAULT_SENSITIVE_FIELDS) {
+        if (p[field]) p[field] = await decryptField(p[field], key);
+      }
+    }
+    res.json(passwords);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/vault/passwords', requireVaultKey, async (req, res) => {
+  try {
+    const entry = { ...req.body, createdAt: new Date(), updatedAt: new Date(), deleted: false };
+    const key = await getVaultKey(process.env.VAULT_MASTER_KEY);
+    
+    for (let field of VAULT_SENSITIVE_FIELDS) {
+      if (entry[field]) entry[field] = await encryptField(entry[field], key);
+    }
+    
+    const result = await db.collection('vault').insertOne(entry);
+    res.json({ success: true, _id: result.insertedId });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/vault/passwords/:id', requireVaultKey, async (req, res) => {
+  try {
+    const entry = { ...req.body, updatedAt: new Date() };
+    delete entry._id;
+    const key = await getVaultKey(process.env.VAULT_MASTER_KEY);
+    
+    for (let field of VAULT_SENSITIVE_FIELDS) {
+      if (entry[field]) entry[field] = await encryptField(entry[field], key);
+    }
+    
+    await db.collection('vault').updateOne({ _id: new ObjectId(req.params.id) }, { $set: entry });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/vault/passwords/:id', requireVaultKey, async (req, res) => {
+  try {
+    await db.collection('vault').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { deleted: true, updatedAt: new Date() } });
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/vault/export', requireVaultKey, async (req, res) => {
+  try {
+    const passwords = await db.collection('vault').find({ deleted: { $ne: true } }).toArray();
+    const key = await getVaultKey(process.env.VAULT_MASTER_KEY);
+    for (let p of passwords) {
+      for (let field of VAULT_SENSITIVE_FIELDS) {
+        if (p[field]) p[field] = await decryptField(p[field], key);
+      }
+    }
+    res.json({ passwords, version: '2.0', exportedAt: new Date() });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// Import old StormPASS JSON
+app.post('/api/vault/import', upload.single('file'), async (req, res) => {
+  try {
+    const { oldMasterPassword, newMasterPassword } = req.body;
+    if (newMasterPassword !== process.env.VAULT_MASTER_KEY) {
+      return res.status(401).json({ error: 'Unauthorized: Invalid master key' });
+    }
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const fileData = fs.readFileSync(req.file.path, 'utf8');
+    const oldVault = JSON.parse(fileData);
+    
+    if (!oldVault.passwords || !Array.isArray(oldVault.passwords)) {
+      return res.status(400).json({ error: 'Invalid vault format' });
+    }
+
+    const oldKey = await getVaultKey(oldMasterPassword);
+    const newKey = await getVaultKey(process.env.VAULT_MASTER_KEY);
+    
+    // Fetch and decrypt existing to check duplicates
+    const existingRaw = await db.collection('vault').find({ deleted: { $ne: true } }).toArray();
+    const existingDecrypted = [];
+    for (let p of existingRaw) {
+      let dec = { ...p };
+      for (let field of VAULT_SENSITIVE_FIELDS) {
+        if (dec[field]) dec[field] = await decryptField(dec[field], newKey);
+      }
+      existingDecrypted.push(dec);
+    }
+
+    let importedCount = 0;
+    
+    for (let oldEntry of oldVault.passwords) {
+      let entry = { ...oldEntry, originalId: oldEntry.id };
+      delete entry.id;
+      
+      try {
+        for (let field of VAULT_SENSITIVE_FIELDS) {
+          if (entry[field]) entry[field] = await decryptField(entry[field], oldKey);
+        }
+      } catch (e) {
+        return res.status(400).json({ error: 'Decryption failed. Incorrect old master password?' });
+      }
+
+      // Check duplicates by ID or by matching primary fields
+      const isDuplicate = existingDecrypted.some(e => 
+        e.originalId === entry.originalId || 
+        (e.accountType === entry.accountType && e.email === entry.email && e.appName === entry.appName)
+      );
+      if (isDuplicate) continue;
+
+      for (let field of VAULT_SENSITIVE_FIELDS) {
+        if (entry[field]) entry[field] = await encryptField(entry[field], newKey);
+      }
+      
+      entry.createdAt = new Date(entry.createdAt || Date.now());
+      entry.updatedAt = new Date();
+      entry.deleted = false;
+      
+      await db.collection('vault').insertOne(entry);
+      importedCount++;
+    }
+    
+    fs.unlinkSync(req.file.path);
+    res.json({ success: true, importedCount });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

@@ -9,27 +9,399 @@
   <link rel="stylesheet" href="/css/styles.css?v=22">
 </head>
 <body>
-  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" style="position:fixed;top:16px;right:16px;z-index:999;">
+  <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" style="position:fixed;top:20px;right:24px;z-index:999;">
     <span id="themeIcon">Dark</span>
   </button>
 
+  <style>
+    /* ─── Deep Forest Theme (Toned Down) ─── */
+    body {
+      --bg-primary: #080808;
+      --bg-secondary: rgba(15, 15, 15, 0.8);
+      --bg-card: rgba(20, 20, 20, 0.6);
+      --bg-card-hover: rgba(28, 28, 28, 0.85);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-light: rgba(255, 255, 255, 0.15);
+      --accent: #2ecc71;
+      --accent-hover: #27ae60;
+      --accent-dim: rgba(46, 204, 113, 0.1);
+      --text-primary: #eaeaea;
+      --text-secondary: #999999;
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(46,204,113,0.03) 0%, transparent 30%),
+        radial-gradient(circle at 90% 80%, rgba(46,204,113,0.02) 0%, transparent 30%) !important;
+    }
+
+    [data-theme="light"] body {
+      --bg-primary: #f8f9fa;
+      --bg-secondary: rgba(240, 240, 240, 0.8);
+      --bg-card: rgba(255, 255, 255, 0.85);
+      --bg-card-hover: #ffffff;
+      --border: rgba(0, 0, 0, 0.08);
+      --border-light: rgba(0, 0, 0, 0.15);
+      --accent: #27ae60;
+      --accent-hover: #219653;
+      --accent-dim: rgba(46, 204, 113, 0.12);
+      --text-primary: #1a1a1a;
+      --text-secondary: #666666;
+      background-color: var(--bg-primary);
+      background-image: 
+        radial-gradient(circle at 10% 20%, rgba(46,204,113,0.04) 0%, transparent 30%),
+        radial-gradient(circle at 90% 80%, rgba(46,204,113,0.03) 0%, transparent 30%) !important;
+    }
+
+    /* ─── Expandable Sidebar Rail (Right Side) ─── */
+    .forest-rail {
+      position: fixed;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 64px;
+      background: var(--bg-modal);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 20px 10px;
+      gap: 20px;
+      z-index: 1000;
+      box-shadow: var(--glass-shadow);
+      overflow: hidden;
+      transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .forest-rail:hover {
+      width: 220px;
+    }
+
+    /* ─── Expandable Archive Rail (Left Side) ─── */
+    .archive-rail {
+      position: fixed;
+      left: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 64px;
+      height: 64px;
+      background: var(--bg-modal);
+      backdrop-filter: var(--glass-blur);
+      -webkit-backdrop-filter: var(--glass-blur);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 20px 10px;
+      gap: 20px;
+      z-index: 1000;
+      box-shadow: var(--glass-shadow);
+      overflow-x: hidden;
+      overflow-y: hidden;
+      transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), height 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    .archive-rail:hover {
+      width: 320px;
+      height: 80vh;
+      overflow-y: auto;
+    }
+
+    .archive-rail::-webkit-scrollbar {
+      width: 6px;
+    }
+    .archive-rail::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .archive-rail::-webkit-scrollbar-thumb {
+      background: var(--border-light);
+      border-radius: 4px;
+    }
+    .archive-rail::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    .archive-rail-icon {
+      width: 100%;
+      height: 24px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      color: var(--text-secondary);
+      padding: 0 10px;
+      gap: 16px;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .archive-rail-icon svg {
+      flex-shrink: 0;
+      color: var(--accent);
+    }
+
+    .archive-rail-title {
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .archive-rail:hover .archive-rail-title {
+      opacity: 1;
+      transition-delay: 0.15s;
+    }
+
+    .archive-rail-content {
+      opacity: 0;
+      width: 280px;
+      pointer-events: none;
+      transition: opacity 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .archive-rail:hover .archive-rail-content {
+      opacity: 1;
+      pointer-events: auto;
+      transition-delay: 0.15s;
+    }
+
+    /* Override archive grid styles inside the left rail */
+    .archive-rail .exam-grid {
+      display: flex !important;
+      flex-direction: column !important;
+      gap: 10px !important;
+      padding: 0 !important;
+    }
+    
+    .archive-rail .exam-card {
+      min-height: 0 !important;
+      height: auto !important;
+      padding: 14px !important;
+      border-bottom: 2px solid var(--exam-color, var(--border)) !important;
+      grid-column: auto !important;
+      grid-row: auto !important;
+    }
+
+    .archive-rail .exam-card .exam-name {
+      font-size: 1.1rem !important;
+      margin-bottom: 4px !important;
+    }
+
+    .archive-rail .archive-year-badge {
+      background: transparent !important;
+      border: 1px solid var(--border) !important;
+      color: var(--text-primary) !important;
+    }
+
+    .rail-item-wrapper {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 16px;
+    }
+
+    .rail-icon {
+      width: 100%;
+      height: 40px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      color: var(--text-secondary);
+      text-decoration: none;
+      transition: all 0.3s;
+      cursor: pointer;
+      background: transparent;
+      border: none;
+      padding: 0 10px;
+      gap: 16px;
+      white-space: nowrap;
+    }
+
+    .rail-icon svg {
+      flex-shrink: 0;
+    }
+
+    .rail-icon:hover {
+      color: var(--accent);
+      background: var(--accent-dim);
+    }
+
+    .rail-text {
+      opacity: 0;
+      font-size: 0.95rem;
+      font-weight: 500;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    .forest-rail:hover .rail-text {
+      opacity: 1;
+      transition-delay: 0.15s;
+    }
+
+    /* ─── Uniform Goal Cards Layout ─── */
+    .exam-page {
+      padding-right: 100px; /* Space for the right rail */
+      padding-left: 100px;  /* Space for the left archive rail */
+      padding-top: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .exam-header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding: 0 10px;
+    }
+    
+    .exam-header h1 {
+      font-size: 2.8rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    /* ─── Bento Gallery Layout ─── */
+    .exam-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      grid-auto-rows: 140px;
+      grid-auto-flow: dense;
+      gap: 20px;
+      padding: 10px;
+    }
+
+    .exam-card {
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 24px;
+      position: relative;
+      overflow: hidden;
+      border-left: 5px solid var(--exam-color, var(--border));
+    }
+
+    /* Gallery/Bento uneven spans */
+    .exam-card:nth-child(6n + 1) { grid-column: span 2; grid-row: span 1; }
+    .exam-card:nth-child(6n + 2) { grid-column: span 1; grid-row: span 2; }
+    .exam-card:nth-child(6n + 3) { grid-column: span 1; grid-row: span 1; }
+    .exam-card:nth-child(6n + 4) { grid-column: span 1; grid-row: span 1; }
+    .exam-card:nth-child(6n + 5) { grid-column: span 2; grid-row: span 2; }
+    .exam-card:nth-child(6n + 6) { grid-column: span 1; grid-row: span 1; }
+
+    .exam-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      border-color: var(--exam-color, var(--accent));
+      background: var(--bg-card-hover);
+    }
+
+    .exam-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: radial-gradient(circle at center, color-mix(in srgb, var(--exam-color, var(--accent)) 15%, transparent), transparent 70%);
+      opacity: 0;
+      transition: opacity 0.4s;
+      pointer-events: none;
+    }
+
+    .exam-card:hover::before {
+      opacity: 1;
+    }
+
+    .exam-card .exam-name {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      z-index: 2;
+    }
+
+    .exam-card .exam-date {
+      font-size: 0.8rem;
+      opacity: 0.8;
+      z-index: 2;
+    }
+
+    /* At smaller screens, reset layout */
+    @media (max-width: 900px) {
+      .exam-card { grid-column: span 1 !important; grid-row: span 1 !important; }
+      .exam-grid { grid-auto-rows: minmax(140px, auto); }
+      .exam-page { padding-right: 20px; padding-left: 20px; }
+      .forest-rail { display: none; }
+    }
+
+    .add-exam-card {
+      border-radius: 20px;
+      border: 2px dashed var(--border);
+      background: transparent;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      grid-column: span 1 !important;
+      grid-row: span 1 !important;
+    }
+
+    .add-exam-card:hover {
+      background: var(--accent-dim);
+      border-color: var(--accent);
+      color: var(--text-primary);
+    }
+  </style>
+
+  <div class="forest-rail">
+    <div style="display:flex; align-items:center; gap:16px; padding: 0 10px; margin-bottom: 12px; width: 100%;">
+      <img src="/img/icon.svg" alt="Kaizen" style="width:24px; height:24px; border-radius: 8px; flex-shrink: 0;">
+      <span class="rail-text" style="font-weight: 800; font-size: 1.2rem; color: var(--text-primary);">Kaizen</span>
+    </div>
+    
+    <div class="rail-item-wrapper">
+      <a href="/sync" class="rail-icon" title="Sync Manager">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        <span class="rail-text">Sync Manager</span>
+      </a>
+      <a href="/vault" class="rail-icon" title="Password Vault">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+        <span class="rail-text">Password Vault</span>
+      </a>
+      <button onclick="openMyDesk()" class="rail-icon" title="My Desk">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        <span class="rail-text">My Desk</span>
+      </button>
+    </div>
+  </div>
+
   <div class="exam-page">
     <div class="exam-header">
-      <img src="/img/icon.svg" alt="Kaizen" class="logo">
-      <h1>Kaizen</h1>
-      <p>Select a goal to start tracking your journey</p>
-      <a href="/sync" style="margin-top: 16px; text-decoration: none; display: inline-flex; align-items: center; gap: 8px; padding: 10px 22px; border-radius: 10px; background: linear-gradient(135deg, #c41e3a, #e8273b); color: #fff; font-weight: 600; font-size: 0.85rem; box-shadow: 0 4px 15px rgba(232, 39, 59, 0.3); border: none; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s;" onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 6px 20px rgba(232, 39, 59, 0.4)'" onmouseout="this.style.transform='none'; this.style.boxShadow='0 4px 15px rgba(232, 39, 59, 0.3)'">⚡ Sync Manager</a>
+      <h1>Goals Dashboard</h1>
+      <p style="color: var(--text-secondary); font-size: 1.1rem; margin-top: 8px;">Select a goal to start tracking your journey</p>
     </div>
-    <div class="exam-section-title">Active Goals</div>
     <div class="exam-grid" id="examGrid"></div>
 
-    <div id="archivesContainer" style="display: none; margin-top: 40px; width: 100%; max-width: 860px;">
-      <button class="archives-toggle-btn" id="archivesToggleBtn" onclick="toggleArchives()" style="display:none;">
-        <svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Show Archives
-      </button>
-      <div id="archivedExamsWrap"></div>
+    <div class="archive-rail" id="archivesContainer" style="display: none;">
+    <div class="archive-rail-icon">
+      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+      <span class="archive-rail-title" style="font-weight: 800; font-size: 1.2rem; color: var(--text-primary);">Archives <span id="archiveCountStr"></span></span>
     </div>
+    
+    <div class="archive-rail-content" id="archivedExamsWrap">
+      <!-- Archives populated by JS -->
+    </div>
+  </div>
   </div>
 
   <!-- Add Goal Modal -->
@@ -106,11 +478,7 @@
     </div>
   </div>
 
-  <!-- My Desk Button (matches sidebar-action-btn style) -->
-  <button class="sidebar-action-btn home-desk-btn" onclick="openMyDesk()" style="position:fixed;bottom:24px;right:24px;z-index:500;width:auto;min-width:100px;flex-direction:row;padding:10px 20px;border-radius:14px;">
-    <svg viewBox="0 0 24 24"><path d="M4 4h16v12H4z"/><path d="M8 20h8"/><path d="M12 16v4"/></svg>
-    <span>My Desk</span>
-  </button>
+  <!-- My Desk button moved to rail -->
 
   <!-- My Desk Modal -->
   <div class="desk-modal-overlay" id="deskModalOverlay">
@@ -291,6 +659,7 @@
   <!-- Desk Confirm Modal removed to allow dynamic creation by desk.js -->
 
   <script src="/js/desk.js?v=9"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
   <script src="/js/examSelect.js?v=3"></script>
 </body>
 </html>

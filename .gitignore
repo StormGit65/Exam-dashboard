@@ -33,3 +33,8 @@ Thumbs.db
 # Database Backups
 backup/
 
+# StormPASS reference code & vault files (contains sensitive password data)
+props/
+
+# Temp files
+*.tmp

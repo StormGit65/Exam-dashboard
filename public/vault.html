@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kaizen — Password Vault</title>
+  <link rel="icon" type="image/svg+xml" href="/img/icon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --dp-bg: #080808;
+      --dp-surface: #111111;
+      --dp-card: rgba(20, 20, 20, 0.8);
+      --dp-red: #2ecc71;
+      --dp-red-bright: #27ae60;
+      --dp-red-dim: rgba(46, 204, 113, 0.1);
+      --dp-red-glow: rgba(46, 204, 113, 0.3);
+      --dp-black: #050505;
+      --dp-dark-gray: rgba(30, 30, 30, 0.8);
+      --dp-gray: rgba(45, 45, 45, 0.85);
+      --dp-text: #eaeaea;
+      --dp-text-dim: #999999;
+      --dp-text-muted: #666666;
+      --dp-white: #f0f4f1;
+      --dp-success: #2ecc71;
+      --dp-success-dim: rgba(46, 204, 113, 0.15);
+      --dp-warning: #f39c12;
+      --dp-warning-dim: rgba(243, 156, 18, 0.15);
+      --dp-danger: #e74c3c;
+      --dp-info: #58a6ff;
+      --dp-info-dim: rgba(88, 166, 255, 0.12);
+      --dp-border: rgba(255, 255, 255, 0.08);
+      --dp-border-red: rgba(255, 255, 255, 0.15);
+      --radius: 20px;
+      --radius-sm: 12px;
+      --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+      --glass-blur: blur(12px);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: var(--dp-bg);
+      color: var(--dp-text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+    }
+
+    /* Layout */
+    .vault-sidebar {
+      width: 260px;
+      background: var(--dp-surface);
+      border-right: 1px solid var(--dp-border);
+      display: flex;
+      flex-direction: column;
+      z-index: 10;
+    }
+
+    .vault-main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background-image:
+        radial-gradient(circle at 10% 20%, rgba(46,204,113,0.03) 0%, transparent 30%),
+        radial-gradient(circle at 90% 80%, rgba(46,204,113,0.02) 0%, transparent 30%);
+      overflow: hidden;
+    }
+
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--dp-bg);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--dp-border-red);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--dp-text-muted);
+    }
+
+    /* Sidebar Content */
+    .sidebar-header {
+      padding: 24px 20px;
+      border-bottom: 1px solid var(--dp-border);
+    }
+    .sidebar-header h1 {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--dp-text);
+      margin-bottom: 4px;
+    }
+    .sidebar-header .sync-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      color: var(--dp-text-dim);
+      background: var(--dp-dark-gray);
+      padding: 4px 10px;
+      border-radius: 12px;
+      border: 1px solid var(--dp-border);
+    }
+    .sync-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--dp-success);
+      box-shadow: 0 0 5px var(--dp-success);
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 20px 12px;
+      overflow-y: auto;
+    }
+    .nav-group {
+      margin-bottom: 24px;
+    }
+    .nav-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      font-weight: 700;
+      color: var(--dp-text-muted);
+      margin-bottom: 8px;
+      padding-left: 12px;
+      letter-spacing: 0.5px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 12px;
+      border-radius: var(--radius-sm);
+      color: var(--dp-text-dim);
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 4px;
+    }
+    .nav-item:hover {
+      background: var(--dp-dark-gray);
+      color: var(--dp-text);
+    }
+    .nav-item.active {
+      background: var(--dp-red-dim);
+      color: var(--dp-red-bright);
+      border-left: 3px solid var(--dp-red-bright);
+    }
+
+    .sidebar-footer {
+      padding: 20px;
+      border-top: 1px solid var(--dp-border);
+    }
+
+    /* Main Area */
+    .view-container {
+      display: none;
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+    }
+    .view-container.active {
+      display: block;
+    }
+
+    .view-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+    .view-header h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+    }
+
+    /* Grid layout for Passwords */
+    .passwords-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .pwd-card {
+      background: var(--dp-card);
+      border: 1px solid var(--dp-border);
+      border-left: 5px solid var(--dp-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+    .pwd-card:hover {
+      border-color: var(--dp-red-bright);
+      transform: translateY(-4px) scale(1.01);
+      box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+    }
+    .pwd-icon {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; font-weight: 700;
+      margin-bottom: 12px;
+      background: var(--dp-red-dim);
+      color: var(--dp-red-bright);
+    }
+    
+    .pwd-card h3 { font-size: 1.05rem; margin-bottom: 4px; color: var(--dp-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pwd-card p { font-size: 0.8rem; color: var(--dp-text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pwd-date { font-size: 0.7rem; color: var(--dp-text-muted); margin-top: 12px; }
+
+    /* Buttons */
+    .dp-btn {
+      padding: 10px 22px; border: none; border-radius: var(--radius-sm);
+      font-family: inherit; font-size: 0.85rem; font-weight: 600;
+      cursor: pointer; transition: all 0.2s; display: inline-flex;
+      align-items: center; justify-content: center; gap: 8px;
+    }
+    .dp-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .dp-btn-primary { background: linear-gradient(135deg, var(--dp-red), var(--dp-red-bright)); color: #fff; box-shadow: 0 4px 15px var(--dp-red-glow); }
+    .dp-btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px var(--dp-red-glow); }
+    .dp-btn-secondary { background: var(--dp-dark-gray); color: var(--dp-text); border: 1px solid var(--dp-border); }
+    .dp-btn-secondary:hover:not(:disabled) { background: var(--dp-gray); border-color: var(--dp-text-dim); }
+    .dp-btn-danger { background: rgba(231,76,60,0.1); color: var(--dp-danger); border: 1px solid rgba(231,76,60,0.2); }
+    .dp-btn-danger:hover { background: var(--dp-danger); color: #fff; }
+
+    /* Inputs */
+    .dp-input {
+      width: 100%; padding: 12px 14px; background: var(--dp-dark-gray);
+      border: 1px solid var(--dp-border); border-radius: var(--radius-sm);
+      color: var(--dp-text); font-family: inherit; font-size: .95rem;
+      outline: none; transition: all 0.2s;
+    }
+    .dp-input:focus { border-color: var(--dp-red-bright); }
+
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; margin-bottom: 6px; font-size: 0.85rem; font-weight: 500; color: var(--dp-text-dim); }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+    /* Vault Card (for Generator) */
+    .vault-card {
+      background: var(--dp-card); border: 1px solid var(--dp-border);
+      border-radius: var(--radius); padding: 24px;
+    }
+
+    /* Modal */
+    .dp-modal-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(5px);
+      align-items: center; justify-content: center; padding: 20px;
+    }
+    .dp-modal-overlay.active { display: flex; }
+    .dp-modal {
+      background: var(--dp-surface); border: 1px solid var(--dp-border);
+      border-radius: var(--radius); width: 100%; max-width: 500px;
+      max-height: 90vh; overflow-y: auto; padding: 24px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
+    .dp-modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px; border-bottom: 1px solid var(--dp-border); padding-bottom: 12px;
+    }
+    .dp-modal-header h3 { font-size: 1.3rem; }
+    .dp-modal-close { background: none; border: none; color: var(--dp-text-dim); font-size: 1.5rem; cursor: pointer; }
+    .dp-modal-close:hover { color: var(--dp-text); }
+
+    /* Generator Results */
+    .pwd-result {
+      background: var(--dp-dark-gray); border: 1px solid var(--dp-border);
+      border-radius: var(--radius-sm); padding: 16px; margin-bottom: 16px;
+    }
+    .pwd-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 8px; font-size: 0.9rem; font-weight: 600;
+    }
+    .pwd-len { font-size: 0.75rem; color: var(--dp-text-dim); font-weight: normal; margin-left: 8px; }
+
+    /* Toast */
+    .toast {
+      position: fixed; bottom: 24px; right: 24px; padding: 12px 20px;
+      border-radius: var(--radius-sm); font-size: 0.85rem; font-weight: 500;
+      z-index: 10000; transform: translateY(100px); opacity: 0;
+      transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast.success { background: var(--dp-success); color: #000; }
+    .toast.error { background: var(--dp-red-bright); color: #fff; }
+
+    /* Search */
+    .search-bar {
+      display: flex; gap: 12px; margin-bottom: 24px;
+    }
+    
+    /* Gate */
+    .gate-container {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      height: 100vh; width: 100vw; position: absolute; z-index: 100;
+      background: var(--dp-bg);
+    }
+    .gate-box {
+      background: var(--dp-surface); padding: 32px; border-radius: var(--radius);
+      border: 1px solid var(--dp-border); width: 100%; max-width: 360px; text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Key Gate -->
+  <div class="gate-container" id="keyGateOverlay">
+    <div class="gate-box">
+      <h2 style="font-size: 1.8rem; font-weight: 800; color: var(--dp-red-bright); margin-bottom: 8px;">🔐 Unlock Vault</h2>
+      <p style="color: var(--dp-text-dim); font-size: 0.9rem; margin-bottom: 16px;">Enter your master key to access your secure password vault.</p>
+      <input type="password" id="masterKeyInput" class="dp-input" placeholder="Enter master key" style="text-align: center; margin-bottom: 12px;">
+      <button class="dp-btn dp-btn-primary" onclick="verifyKey()" id="verifyKeyBtn" style="width: 100%;">Unlock</button>
+      <div id="keyError" style="color: var(--dp-danger); font-size: 0.85rem; margin-top: 8px; display: none;">Invalid key. Please try again.</div>
+    </div>
+  </div>
+
+  <!-- App Layout -->
+  <div style="display: none; width: 100%; height: 100%;" id="vaultContent">
+    
+    <aside class="vault-sidebar">
+      <div class="sidebar-header">
+        <a href="/dashboard.html" style="color: var(--dp-text-dim); text-decoration: none; font-size: 0.85rem; display: flex; align-items: center; gap: 8px; margin-bottom: 16px;">
+          ← Back to Dashboard
+        </a>
+        <h1>🔐 Kaizen Vault</h1>
+        <div class="sync-indicator">
+          <div class="sync-dot" id="syncDot"></div>
+          <span id="syncText">Atlas Synced</span>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-group">
+          <div class="nav-label">Vault</div>
+          <div class="nav-item active" onclick="switchView('passwords')" id="nav-passwords">
+            🛡️ All Passwords
+          </div>
+          <div class="nav-item" onclick="switchView('generator')" id="nav-generator">
+            ⚡ Password Generator
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <div class="nav-label">Tools & Backup</div>
+          <div class="nav-item" onclick="exportVault()">
+            📥 Export JSON
+          </div>
+          <div style="padding: 10px 12px;">
+            <label for="importFile" class="dp-btn dp-btn-secondary" style="width: 100%; font-size: 0.75rem; padding: 6px;" id="fileLabel">📁 Choose JSON</label>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="document.getElementById('fileLabel').textContent = '📄 ' + this.files[0].name">
+            <input type="password" id="oldMasterKey" class="dp-input" placeholder="Old Master Password" style="margin-top: 8px; padding: 6px 10px; font-size: 0.8rem;">
+            <button class="dp-btn dp-btn-secondary" onclick="importVault()" id="importBtn" style="width: 100%; margin-top: 8px; font-size: 0.75rem; padding: 6px;">
+              📤 Import
+            </button>
+          </div>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="vault-main">
+      <!-- Passwords View -->
+      <div class="view-container active" id="view-passwords">
+        <div class="view-header">
+          <h2>All Passwords</h2>
+        </div>
+        
+        <div class="search-bar">
+          <input type="text" id="searchInput" class="dp-input" placeholder="Search accounts..." oninput="filterList()" style="max-width: 300px;">
+          <select id="filterType" class="dp-input" onchange="filterList()" style="max-width: 150px;">
+            <option value="all">All Types</option>
+            <option value="email">Email</option>
+            <option value="app">App</option>
+            <option value="custom">Custom</option>
+          </select>
+        </div>
+
+        <div class="passwords-grid" id="savedList">
+          <!-- Rendered via JS -->
+        </div>
+      </div>
+
+      <!-- Generator View -->
+      <div class="view-container" id="view-generator">
+        <div class="view-header" style="justify-content: center; text-align: center;">
+          <h2>Password Generator</h2>
+        </div>
+        
+        <div style="max-width: 600px; margin: 0 auto; display: flex; flex-direction: column; gap: 32px;">
+          <div>
+            <div class="form-group">
+              <label>Account Type</label>
+              <select id="accountType" class="dp-input" onchange="toggleAppName()">
+                <option value="email">Email</option>
+                <option value="app">App</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            
+            <div class="form-group" id="appNameGroup" style="display: none;">
+              <label id="appNameLabel">App Name</label>
+              <input type="text" id="appName" class="dp-input" placeholder="e.g. Netflix">
+            </div>
+
+            <div class="form-group">
+              <label>Email Address</label>
+              <input type="email" id="email" class="dp-input" placeholder="you@example.com">
+            </div>
+
+            <div class="form-group">
+              <label>Memorable Quote (Keep it secret!)</label>
+              <input type="text" id="userQuote" class="dp-input" placeholder="e.g. My first dog was a golden retriever">
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label>Preferred Numbers</label>
+                <input type="text" id="preferredNumbers" class="dp-input" placeholder="e.g. 42">
+              </div>
+              <div class="form-group">
+                <label>Preferred Symbols</label>
+                <input type="text" id="preferredSymbols" class="dp-input" placeholder="e.g. !@#$">
+              </div>
+            </div>
+
+            <div style="margin-top: 16px;">
+              <button class="dp-btn dp-btn-secondary" onclick="toggleExtraInputs()" style="width: 100%;">
+                <span id="extraToggleIcon">▼</span> Advanced: Extra Length
+              </button>
+              
+              <div id="extraInputs" style="display: none; margin-top: 12px; border-left: 2px solid var(--dp-border); padding-left: 12px;">
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label style="font-size: 0.75rem;">Extra String (Full)</label>
+                  <input type="text" id="extraFull" class="dp-input" style="padding: 6px 12px; font-size: 0.8rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label style="font-size: 0.75rem;">Extra String (Short)</label>
+                  <input type="text" id="extraShort" class="dp-input" style="padding: 6px 12px; font-size: 0.8rem;">
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                  <label style="font-size: 0.75rem;">Extra String (Shortest)</label>
+                  <input type="text" id="extraShortest" class="dp-input" style="padding: 6px 12px; font-size: 0.8rem;">
+                </div>
+              </div>
+            </div>
+
+            <button class="dp-btn dp-btn-primary" id="generateBtn" onclick="generatePassword()" style="width: 100%; margin-top: 24px;">Generate & Save</button>
+          </div>
+
+          <div id="resultCard" style="display: none; border-top: 1px solid var(--dp-border); padding-top: 24px;">
+            <div id="strengthIndicator" style="text-align: center; padding: 8px; border-radius: var(--radius-sm); margin-bottom: 20px; font-weight: 700; background: var(--dp-dark-gray);">Strength: -</div>
+
+            <div class="pwd-result">
+              <div class="pwd-header">
+                <span>Full Password <span id="fullLen" class="pwd-len"></span></span>
+                <div style="display: flex; gap: 8px;">
+                  <button class="dp-btn dp-btn-secondary copy-btn" onclick="toggleVis('resFull')">👁</button>
+                  <button class="dp-btn dp-btn-secondary copy-btn" onclick="copyPwd('full')">Copy</button>
+                </div>
+              </div>
+              <input type="password" id="resFull" class="dp-input" readonly>
+            </div>
+
+            <div class="pwd-result">
+              <div class="pwd-header">
+                <span>Short Password <span id="shortLen" class="pwd-len"></span></span>
+                <div style="display: flex; gap: 8px;">
+                  <button class="dp-btn dp-btn-secondary copy-btn" onclick="toggleVis('resShort')">👁</button>
+                  <button class="dp-btn dp-btn-secondary copy-btn" onclick="copyPwd('short')">Copy</button>
+                </div>
+              </div>
+              <input type="password" id="resShort" class="dp-input" readonly>
+            </div>
+
+            <div class="pwd-result">
+              <div class="pwd-header">
+                <span>Shortest Password <span id="shortestLen" class="pwd-len"></span></span>
+                <div style="display: flex; gap: 8px;">
+                  <button class="dp-btn dp-btn-secondary copy-btn" onclick="toggleVis('resShortest')">👁</button>
+                  <button class="dp-btn dp-btn-secondary copy-btn" onclick="copyPwd('shortest')">Copy</button>
+                </div>
+              </div>
+              <input type="password" id="resShortest" class="dp-input" readonly>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Edit/View Modal -->
+  <div class="dp-modal-overlay" id="editModal">
+    <div class="dp-modal">
+      <div class="dp-modal-header">
+        <h3>View Password</h3>
+        <button class="dp-modal-close" onclick="closeEditModal()">×</button>
+      </div>
+      <div id="modalBody">
+        <!-- Rendered via JS -->
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="/js/vault.js"></script>
+</body>
+</html>

@@ -8,7 +8,7 @@
 
 const { MongoClient } = require('mongodb');
 
-const COLLECTIONS = ['exams', 'mocks', 'goals', 'completedEntries', 'deskProfiles'];
+const COLLECTIONS = ['exams', 'mocks', 'goals', 'completedEntries', 'deskProfiles', 'vault'];
 const MAX_SNAPSHOTS = 5;
 
 // Current sync state — exported for API access

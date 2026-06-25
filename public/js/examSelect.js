@@ -51,6 +51,10 @@ function renderExams(exams) {
   const archivesContainer = document.getElementById('archivesContainer');
   const archivesWrap = document.getElementById('archivedExamsWrap');
   
+  if (window._mainSortable) window._mainSortable.destroy();
+  if (window._archiveSortables) window._archiveSortables.forEach(s => s.destroy());
+  window._archiveSortables = [];
+
   grid.innerHTML = '';
   if (archivesWrap) archivesWrap.innerHTML = '';
   
@@ -70,23 +74,11 @@ function renderExams(exams) {
     }
   });
 
-  // Sort active exams: by date ascending (nearest first), then time if same date, dateless at end
+  // Sort active exams by custom order
   activeExams.sort((a, b) => {
-    if (!a.examDate && !b.examDate) return 0;
-    if (!a.examDate) return 1;
-    if (!b.examDate) return -1;
-    const da = new Date(a.examDate).getTime(), db = new Date(b.examDate).getTime();
-    if (da !== db) return da - db;
-    // Same date — sort by start time
-    const parseStart = (tr) => {
-      const m = (tr || '').match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
-      if (!m) return 9999;
-      let h = parseInt(m[1]);
-      if (m[3].toUpperCase() === 'PM' && h !== 12) h += 12;
-      if (m[3].toUpperCase() === 'AM' && h === 12) h = 0;
-      return h * 60 + parseInt(m[2]);
-    };
-    return parseStart(a.examTimeRange) - parseStart(b.examTimeRange);
+    const orderA = a.order !== undefined ? a.order : 9999999999999;
+    const orderB = b.order !== undefined ? b.order : 9999999999999;
+    return orderA - orderB;
   });
 
   // Render active exam cards
@@ -98,88 +90,102 @@ function renderExams(exams) {
   const addCard = document.createElement('div');
   addCard.className = 'add-exam-card';
   addCard.onclick = openModal;
-  addCard.innerHTML = `<div class="plus">+</div><div>Add Exam</div>`;
+  addCard.innerHTML = `<div class="plus">+</div><div style="font-weight: 600;">Add Goal</div>`;
   grid.appendChild(addCard);
+
+  if (typeof Sortable !== 'undefined') {
+    window._mainSortable = new Sortable(grid, {
+      animation: 150,
+      draggable: '.exam-card',
+      filter: '.add-exam-card',
+      onEnd: function() { saveExamOrder(grid); }
+    });
+  }
 
   // Render archives section
   const years = Object.keys(archivedByYear).sort((a, b) => b.localeCompare(a));
   const hasArchives = years.length > 0;
 
-  if (archivesContainer) {
-    if (hasArchives) {
-      // Always show the toggle button area
-      archivesContainer.style.display = 'block';
-
-      // Show/hide content based on archivesVisible state
-      if (archivesVisible) {
-        years.forEach(year => {
-          const yearSection = document.createElement('div');
-          yearSection.className = 'archive-year-section';
-
-          const isExpanded = expandedYears.has(year);
-
-          const yearHeader = document.createElement('div');
-          yearHeader.className = `archive-year-header ${isExpanded ? 'expanded' : ''}`;
-          yearHeader.innerHTML = `
-            <span class="archive-year-badge">
-              <svg class="archive-chevron" viewBox="0 0 24 24" width="14" height="14"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              ${year}
-            </span>
-            <span class="archive-year-count">${Object.values(archivedByYear[year]).flat().length} exams</span>`;
-          yearHeader.onclick = () => toggleYear(year);
-          yearSection.appendChild(yearHeader);
-
-          const yearContent = document.createElement('div');
-          yearContent.className = `archive-year-content ${isExpanded ? 'expanded' : ''}`;
-
-          const baseNames = Object.keys(archivedByYear[year]).sort();
-          baseNames.forEach(baseName => {
-            const group = archivedByYear[year][baseName];
-
-            // Sub-header for base name if multiple names exist
-            if (baseNames.length > 1 || group.length > 1) {
-              const nameHeader = document.createElement('div');
-              nameHeader.className = 'archive-name-header';
-              nameHeader.textContent = baseName;
-              yearContent.appendChild(nameHeader);
-            }
-
-            const batchGrid = document.createElement('div');
-            batchGrid.className = 'exam-grid';
-            
-            // Sort by batch label
-            group.sort((a, b) => {
-              const aNum = parseInt((a.batchLabel || '').replace(/\D/g, '')) || 0;
-              const bNum = parseInt((b.batchLabel || '').replace(/\D/g, '')) || 0;
-              return aNum - bNum;
-            });
-
-            group.forEach(exam => {
-              batchGrid.appendChild(createExamCard(exam, true));
-            });
-            yearContent.appendChild(batchGrid);
-          });
-
-          yearSection.appendChild(yearContent);
-          archivesWrap.appendChild(yearSection);
-        });
-      }
-    } else {
-      archivesContainer.style.display = 'none';
-    }
+  // Open dropdowns by default on first load
+  if (hasArchives && expandedYears.size === 0 && !window._archivesInitialized) {
+    years.forEach(y => expandedYears.add(y));
+    window._archivesInitialized = true;
   }
 
-  // Update toggle button text
-  const toggleBtn = document.getElementById('archivesToggleBtn');
-  if (toggleBtn) {
-    if (!hasArchives) {
-      toggleBtn.style.display = 'none';
+  if (archivesContainer) {
+    if (hasArchives) {
+      archivesContainer.style.display = '';
+
+      const countStrEl = document.getElementById('archiveCountStr');
+      if (countStrEl) {
+        const count = exams.filter(e => e.isArchived).length;
+        countStrEl.textContent = `(${count})`;
+      }
+
+      years.forEach(year => {
+        const yearSection = document.createElement('div');
+        yearSection.className = 'archive-year-section';
+
+        const isExpanded = expandedYears.has(year);
+
+        const yearHeader = document.createElement('div');
+        yearHeader.className = `archive-year-header ${isExpanded ? 'expanded' : ''}`;
+        yearHeader.innerHTML = `
+          <span class="archive-year-badge">
+            <svg class="archive-chevron" viewBox="0 0 24 24" width="14" height="14"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            ${year}
+          </span>
+          <span class="archive-year-count" style="font-size: 0.85rem; color: var(--text-muted);">${Object.values(archivedByYear[year]).flat().length} exams</span>`;
+        yearHeader.onclick = () => toggleYear(year);
+        yearSection.appendChild(yearHeader);
+
+        const yearContent = document.createElement('div');
+        yearContent.className = `archive-year-content ${isExpanded ? 'expanded' : ''}`;
+
+        const baseNames = Object.keys(archivedByYear[year]).sort();
+        baseNames.forEach(baseName => {
+          const group = archivedByYear[year][baseName];
+
+          // Sub-header for base name if multiple names exist
+          if (baseNames.length > 1 || group.length > 1) {
+            const nameHeader = document.createElement('div');
+            nameHeader.className = 'archive-name-header';
+            nameHeader.textContent = baseName;
+            yearContent.appendChild(nameHeader);
+          }
+
+          const batchGrid = document.createElement('div');
+          batchGrid.className = 'exam-grid';
+          
+          // Sort archives by manual order, fallback to batch label
+          group.sort((a, b) => {
+            if (a.order !== undefined && b.order !== undefined && a.order !== b.order) {
+              return a.order - b.order;
+            }
+            const aNum = parseInt((a.batchLabel || '').replace(/\D/g, '')) || 0;
+            const bNum = parseInt((b.batchLabel || '').replace(/\D/g, '')) || 0;
+            return aNum - bNum;
+          });
+
+          group.forEach(exam => {
+            batchGrid.appendChild(createExamCard(exam, true));
+          });
+          yearContent.appendChild(batchGrid);
+          if (typeof Sortable !== 'undefined') {
+            window._archiveSortables = window._archiveSortables || [];
+            window._archiveSortables.push(new Sortable(batchGrid, {
+              animation: 150,
+              draggable: '.exam-card',
+              onEnd: function() { saveExamOrder(batchGrid); }
+            }));
+          }
+        });
+
+        yearSection.appendChild(yearContent);
+        archivesWrap.appendChild(yearSection);
+      });
     } else {
-      toggleBtn.style.display = '';
-      const count = exams.filter(e => e.isArchived).length;
-      toggleBtn.innerHTML = archivesVisible
-        ? `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M19 9l-7 7-7-7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> Hide Archives (${count})`
-        : `<svg viewBox="0 0 24 24" width="16" height="16"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg> Show Archives (${count})`;
+      archivesContainer.style.display = 'none';
     }
   }
 }
@@ -187,6 +193,7 @@ function renderExams(exams) {
 function createExamCard(exam, isArchived) {
   const card = document.createElement('div');
   card.className = `exam-card${isArchived ? ' archived' : ''}`;
+  card.dataset.id = exam._id;
   card.style.setProperty('--exam-color', exam.color);
   card.onclick = () => window.location.href = `/dashboard?exam=${exam._id}`;
   const dateStr = exam.examDate ? new Date(exam.examDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'No date set';
@@ -207,11 +214,7 @@ function createExamCard(exam, isArchived) {
   return card;
 }
 
-// ─── Archives Toggle ───
-function toggleArchives() {
-  archivesVisible = !archivesVisible;
-  loadExams();
-}
+
 
 function toggleYear(year) {
   if (expandedYears.has(year)) {
@@ -492,3 +495,26 @@ function initTimeDropdowns() {
 initTheme();
 initTimeDropdowns();
 loadExams();
+
+
+function saveExamOrder(gridElement) {
+  // Always push the Add button to the end
+  const addBtn = gridElement.querySelector('.add-exam-card');
+  if (addBtn) {
+    gridElement.appendChild(addBtn);
+  }
+
+  const cards = Array.from(gridElement.querySelectorAll('.exam-card'));
+  const updates = cards.map((card, index) => ({
+    id: card.dataset.id,
+    order: index
+  }));
+
+  if (updates.length === 0) return;
+
+  fetch('/api/exams/reorder', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ updates })
+  }).catch(err => console.error('Failed to save order:', err));
+}
