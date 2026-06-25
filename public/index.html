@@ -16,17 +16,6 @@
   <style>
     /* ─── Deep Forest Theme (Toned Down) ─── */
     body {
-      --bg-primary: #080808;
-      --bg-secondary: rgba(15, 15, 15, 0.8);
-      --bg-card: rgba(20, 20, 20, 0.6);
-      --bg-card-hover: rgba(28, 28, 28, 0.85);
-      --border: rgba(255, 255, 255, 0.08);
-      --border-light: rgba(255, 255, 255, 0.15);
-      --accent: #2ecc71;
-      --accent-hover: #27ae60;
-      --accent-dim: rgba(46, 204, 113, 0.1);
-      --text-primary: #eaeaea;
-      --text-secondary: #999999;
       background-color: var(--bg-primary);
       background-image: 
         radial-gradient(circle at 10% 20%, rgba(46,204,113,0.03) 0%, transparent 30%),
@@ -34,18 +23,6 @@
     }
 
     [data-theme="light"] body {
-      --bg-primary: #f8f9fa;
-      --bg-secondary: rgba(240, 240, 240, 0.8);
-      --bg-card: rgba(255, 255, 255, 0.85);
-      --bg-card-hover: #ffffff;
-      --border: rgba(0, 0, 0, 0.08);
-      --border-light: rgba(0, 0, 0, 0.15);
-      --accent: #27ae60;
-      --accent-hover: #219653;
-      --accent-dim: rgba(46, 204, 113, 0.12);
-      --text-primary: #1a1a1a;
-      --text-secondary: #666666;
-      background-color: var(--bg-primary);
       background-image: 
         radial-gradient(circle at 10% 20%, rgba(46,204,113,0.04) 0%, transparent 30%),
         radial-gradient(circle at 90% 80%, rgba(46,204,113,0.03) 0%, transparent 30%) !important;
@@ -279,7 +256,8 @@
       border-radius: 20px;
       border: 1px solid var(--border);
       background: var(--bg-card);
-      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow: var(--glass-shadow);
+      transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.25s ease, background-color 0.25s ease;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -300,8 +278,8 @@
     .exam-card:nth-child(6n + 6) { grid-column: span 1; grid-row: span 1; }
 
     .exam-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-hover);
       border-color: var(--exam-color, var(--accent));
       background: var(--bg-card-hover);
     }
