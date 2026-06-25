@@ -1113,7 +1113,7 @@ function execHighlight(color) {
   // Apply colors, merge (handles ZWS cleanup + flatten internally), then move cursor out
   setTimeout(() => {
     applyHighlightTextColors(editor);
-    mergeAdjacentHighlights(editor);
+    // mergeAdjacentHighlights(editor);
     _moveCursorOutOfHighlight(editor);
   }, 10);
 }
@@ -1681,7 +1681,7 @@ function confirmInsertLink() {
     }
     document.execCommand('insertHTML', false, `<div class="entry-embed resizable" contenteditable="false"><button class="entry-media-remove" onclick="if(confirm('Are you sure you want to remove this media?')) this.parentElement.remove()" title="Remove">&times;</button><iframe src="${embedUrl}" frameborder="0" allowfullscreen></iframe><a href="${url}" target="_blank" class="embed-link">${text}</a></div><p><br></p>`);
   } else {
-    document.execCommand('insertHTML', false, `<a href="${url}" target="_blank" class="entry-link" style="background-color: ${bgColor}; color: ${fgColor};">${text}</a>`);
+    document.execCommand('insertHTML', false, `<a href="${url}" target="_blank" class="entry-link" contenteditable="false" style="background-color: ${bgColor}; color: ${fgColor};">${text}</a>&nbsp;`);
   }
   editorAttachments.push({ type: 'link', url, name: text, embedMode: embed, id: 'att-' + Date.now() });
 }
@@ -1988,11 +1988,49 @@ document.addEventListener('DOMContentLoaded', () => {
     body.addEventListener('keydown', (e) => {
       if (e.key === 'Backspace' || e.key === 'Delete') {
         const sel = window.getSelection();
+        if (sel.rangeCount > 0) {
+          const range = sel.getRangeAt(0);
+          if (!sel.isCollapsed) {
+            const ca = range.commonAncestorContainer;
+            const el = ca.nodeType === 3 ? ca.parentElement : ca;
+            const link = el && el.closest ? el.closest('.entry-link') : null;
+            if (link) { 
+              e.preventDefault(); 
+              const newRange = document.createRange(); newRange.selectNode(link); sel.removeAllRanges(); sel.addRange(newRange);
+              document.execCommand('delete', false, null); 
+              return; 
+            }
+            if (range.startContainer === range.endContainer && range.startContainer.nodeType === 1) {
+              const selectedNode = range.startContainer.childNodes[range.startOffset];
+              if (selectedNode && selectedNode.nodeType === 1 && selectedNode.classList && selectedNode.classList.contains('entry-link') && range.endOffset === range.startOffset + 1) {
+                e.preventDefault(); 
+                document.execCommand('delete', false, null); 
+                return;
+              }
+            }
+          } else {
+            const el = sel.anchorNode.nodeType === 3 ? sel.anchorNode.parentElement : sel.anchorNode;
+            const insideLink = el && el.closest ? el.closest('.entry-link') : null;
+            if (insideLink) {
+              e.preventDefault(); const newRange = document.createRange(); newRange.selectNode(insideLink); sel.removeAllRanges(); sel.addRange(newRange); return;
+            }
+            if (e.key === 'Backspace') {
+              let prev = null;
+              if (sel.anchorNode.nodeType === 3 && range.startOffset === 0) {
+                prev = sel.anchorNode.previousSibling;
+              } else if (sel.anchorNode.nodeType === 1 && range.startOffset > 0) {
+                prev = sel.anchorNode.childNodes[range.startOffset - 1];
+              }
+              if (prev && prev.nodeType === 1 && prev.classList && prev.classList.contains('entry-link')) {
+                e.preventDefault(); const newRange = document.createRange(); newRange.selectNode(prev); sel.removeAllRanges(); sel.addRange(newRange); return;
+              }
+            }
+          }
+        }
         if (sel.anchorNode) {
           const block = sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement;
           const prev = block?.previousElementSibling;
           if (e.key === 'Backspace' && prev && prev.getAttribute('contenteditable') === 'false') {
-            // Caret is right after a non-editable block and the block would be deleted
             const range = sel.getRangeAt(0);
             if (range.startOffset === 0) {
               e.preventDefault();
@@ -2056,8 +2094,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Merge adjacent same-color highlights on input
-    body.addEventListener('input', () => {
-      mergeAdjacentHighlights(body);
-    });
+    // body.addEventListener('input', () => {
+    //   mergeAdjacentHighlights(body);
+    // });
   }
 });

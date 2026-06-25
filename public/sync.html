@@ -429,12 +429,15 @@
           const start = new Date(entry.sessionStart).toLocaleString();
           const end = entry.sessionEnd ? new Date(entry.sessionEnd).toLocaleString() : '<em>active</em>';
           
-          // Determine HEAD pointer (first push/pull/sync)
+          // Determine HEAD pointer — first DUAL-mode entry with any meaningful sync state
           let isHead = false;
           const acts = [entry.startupAction, entry.shutdownAction].join(' ');
-          if (!headFound && (acts.includes('PUSH') || acts.includes('PULL') || acts.includes('SYNC'))) {
-            isHead = true;
-            headFound = true;
+          if (!headFound && (entry.mode === 'DUAL')) {
+            const validHeadActions = ['PUSH', 'PULL', 'SYNC', 'IN_SYNC', 'LOCAL_AHEAD', 'INITIAL_'];
+            if (validHeadActions.some(a => acts.includes(a))) {
+              isHead = true;
+              headFound = true;
+            }
           }
 
           let undoText = '⎌ Undo Sync';

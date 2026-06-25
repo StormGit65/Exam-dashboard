@@ -516,9 +516,16 @@ async function pushOnShutdown(localDb, atlasDb, localClient, atlasClient, dbName
     // Update ledger
     if (syncState.sessionId) {
       try {
+        const updateOp = {
+          $set: { shutdownAction: 'PUSH_TO_ATLAS', sessionEnd: new Date() }
+        };
+        // Record the snapshot so the UI can show an undo button
+        if (snapName) {
+          updateOp.$push = { snapshotsBefore: snapName };
+        }
         await localDb.collection('_syncLedger').updateOne(
           { _id: syncState.sessionId },
-          { $set: { shutdownAction: 'PUSH_TO_ATLAS', sessionEnd: new Date() } }
+          updateOp
         );
       } catch {}
     }

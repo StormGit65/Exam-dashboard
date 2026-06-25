@@ -866,16 +866,16 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 app.get('/api/desk/profiles', async (req, res) => {
   try {
     const showArchived = req.query.archived === 'true';
-    const filter = showArchived ? { archived: true } : { archived: { $ne: true } };
+    const filter = showArchived ? { deleted: { $ne: true }, archived: true } : { deleted: { $ne: true }, archived: { $ne: true } };
     const profiles = await db.collection('deskProfiles').find(filter).sort({ order: 1, createdAt: 1 }).toArray();
     for (const p of profiles) {
       const pId = p._id.toString();
-      const goalCount = await db.collection('goals').countDocuments({ examId: 'desk', profileId: pId });
+      const goalCount = await db.collection('goals').countDocuments({ deleted: { $ne: true }, examId: 'desk', profileId: pId });
       if (goalCount > 0) {
         p.hasData = true;
         continue;
       }
-      const entryCount = await db.collection('completedEntries').countDocuments({ examId: 'desk', profileId: pId });
+      const entryCount = await db.collection('completedEntries').countDocuments({ deleted: { $ne: true }, examId: 'desk', profileId: pId });
       if (entryCount > 0) {
         p.hasData = true;
       } else {
@@ -958,7 +958,7 @@ app.put('/api/desk/profiles/:id/unarchive', async (req, res) => {
 
 app.get('/api/desk/goals', async (req, res) => {
   try {
-    const query = { examId: 'desk' };
+    const query = { deleted: { $ne: true }, examId: 'desk' };
     if (req.query.date) query.date = req.query.date;
     if (req.query.profileId) query.profileId = req.query.profileId;
 
@@ -979,7 +979,7 @@ app.get('/api/desk/goals', async (req, res) => {
 app.get('/api/desk/goals/range', async (req, res) => {
   try {
     const { start, end, profileId } = req.query;
-    const query = { examId: 'desk', date: { $gte: start, $lte: end } };
+    const query = { deleted: { $ne: true }, examId: 'desk', date: { $gte: start, $lte: end } };
     if (profileId) query.profileId = profileId;
     const goals = await db.collection('goals').find(query).sort({ date: 1, order: 1, createdAt: 1 }).toArray();
     res.json(goals);
@@ -1060,7 +1060,7 @@ app.put('/api/desk/goals/action/reorder', async (req, res) => {
 
 app.get('/api/desk/entries', async (req, res) => {
   try {
-    const query = { examId: 'desk' };
+    const query = { deleted: { $ne: true }, examId: 'desk' };
     if (req.query.date) query.date = req.query.date;
     if (req.query.profileId) query.profileId = req.query.profileId;
     const entries = await db.collection('completedEntries').find(query).sort({ order: 1, createdAt: -1 }).toArray();
@@ -1071,7 +1071,7 @@ app.get('/api/desk/entries', async (req, res) => {
 app.get('/api/desk/entries/range', async (req, res) => {
   try {
     const { start, end, profileId } = req.query;
-    const query = { examId: 'desk', date: { $gte: start, $lte: end } };
+    const query = { deleted: { $ne: true }, examId: 'desk', date: { $gte: start, $lte: end } };
     if (profileId) query.profileId = profileId;
     const entries = await db.collection('completedEntries').find(query).sort({ date: 1, createdAt: -1 }).toArray();
     res.json(entries);
@@ -1155,7 +1155,7 @@ app.get('/api/sync/status', async (req, res) => {
       status.collections = {};
       for (const col of sync.COLLECTIONS) {
         try {
-          status.collections[col] = await db.collection(col).countDocuments();
+          status.collections[col] = await db.collection(col).countDocuments({ deleted: { $ne: true } });
         } catch {
           status.collections[col] = 0;
         }
@@ -1260,18 +1260,6 @@ app.post('/api/sync/restore', async (req, res) => {
   }
 });
 
-// Manual push to Atlas
-app.post('/api/sync/push', async (req, res) => {
-  try {
-    if (!localDb || !atlasDb) {
-      return res.status(400).json({ error: 'Both local and Atlas must be connected for manual push' });
-    }
-    const result = await sync.manualPush(localDb, atlasDb, localClient, atlasClient, DB_NAME);
-    res.json(result);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
 
 // Reconnect to databases
 app.post('/api/sync/reconnect', async (req, res) => {
