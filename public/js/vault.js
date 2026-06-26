@@ -3,6 +3,11 @@ let vaultData = [];
 let currentEditingId = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+  // Initialize history state for views
+  const initialView = window.location.hash.replace('#', '') || 'passwords';
+  window.history.replaceState({ view: initialView }, '', `#${initialView}`);
+  switchView(initialView, true, true);
+
   if (masterKey) {
     document.getElementById('keyGateOverlay').style.display = 'none';
     document.getElementById('vaultContent').style.display = 'flex';
@@ -18,6 +23,18 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+// Handle browser back/forward navigation
+window.addEventListener('popstate', (e) => {
+  if (e.state && e.state.view) {
+    switchView(e.state.view, true, true);
+  } else {
+    switchView('passwords', true, true);
+  }
+  // Close modal if open when navigating back
+  const editModal = document.getElementById('editModal');
+  if (editModal) editModal.classList.remove('active');
+});
+
 function showToast(msg, type = 'success') {
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -26,11 +43,13 @@ function showToast(msg, type = 'success') {
 }
 
 // ─── VIEW SWITCHING ─────────────────────────────────────────
-function switchView(view, fromLoad = false) {
+function switchView(view, fromLoad = false, isPopState = false) {
   document.querySelectorAll('.view-container').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
   
-  document.getElementById(`view-${view}`).classList.add('active');
+  const viewEl = document.getElementById(`view-${view}`);
+  if (viewEl) viewEl.classList.add('active');
+  
   const navItem = document.getElementById(`nav-${view}`);
   if (navItem) navItem.classList.add('active');
   
@@ -39,6 +58,10 @@ function switchView(view, fromLoad = false) {
     const btn = document.getElementById('generateBtn');
     if (btn) btn.textContent = 'Generate & Save';
     document.getElementById('resultCard').style.display = 'none';
+  }
+
+  if (!isPopState) {
+    window.history.pushState({ view }, '', `#${view}`);
   }
 }
 
@@ -145,29 +168,30 @@ function doGenerate() {
     extraShortest: document.getElementById('extraShortest').value
   };
 
-  const words = data.userQuote.trim().split(/\s+/);
-  const quoteAbbreviation = words.map(word => {
-    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
-  }).join('').replace(/[^a-zA-Z]/g, '');
+  const words = data.userQuote.trim().split(/\s+/).filter(w => w.length > 0);
+  const firstLetters = words.map(w => w.charAt(0)).join('').replace(/[^a-zA-Z]/g, '');
+  const quoteAbbreviation = firstLetters ? firstLetters.charAt(0).toUpperCase() + firstLetters.slice(1).toLowerCase() : '';
 
   let fullAppName = '';
   if ((data.accountType === 'app' || data.accountType === 'custom') && data.appName) {
-    const app = data.appName.trim();
-    if (app.length >= 4) {
-      fullAppName = app.substring(0, 2) + app.substring(app.length - 2);
+    const appNameTrimmed = data.appName.trim();
+    const appFirstWord = appNameTrimmed.split(/\s+/)[0] || '';
+    if (appFirstWord.length >= 4) {
+      fullAppName = appFirstWord.substring(0, 2) + appFirstWord.substring(appFirstWord.length - 2);
     } else {
-      fullAppName = app;
+      fullAppName = appNameTrimmed;
     }
   }
 
   const emailName = data.email ? (data.email.split('@')[0] || '') : '';
+  const domainFull = data.email && data.email.includes('@') ? data.email.split('@')[1] : (data.email ? '' : '');
   const emailNumbersFull = extractNumbersFromEmail(data.email);
   const fullPwd = (data.preferredNumbers || '') + quoteAbbreviation + (data.preferredSymbols || '') + 
-                 (data.email || '') + fullAppName + emailName.replace(/\d/g, '') + emailNumbersFull + (data.extraFull || '');
+                 domainFull + fullAppName + emailName.replace(/\d/g, '').substring(0, 3) + emailNumbersFull + (data.extraFull || '');
 
   const firstPrefNum = (data.preferredNumbers || '').replace(/\D/g, '').charAt(0) || '';
   const shortQuoteLetter = words[0] ? words[0].charAt(0).toLowerCase() : '';
-  const domain = data.email ? (data.email.split('@')[1] || 'email.com') : 'email.com';
+  const domain = data.email && data.email.includes('@') ? data.email.split('@')[1] : 'email.com';
   const firstDomainLetter = domain.charAt(0).toLowerCase();
   
   let shortAppName = '';
@@ -175,15 +199,16 @@ function doGenerate() {
 
   const shortEmailName = emailName.replace(/\d/g, '').substring(0, 3).toLowerCase();
   const firstEmailNum = extractNumbersFromEmail(data.email).charAt(0) || '';
-  const shortPwd = 'SP' + firstPrefNum + shortQuoteLetter + (data.preferredSymbols || '') + 
-                  firstDomainLetter + shortAppName + shortEmailName + firstEmailNum + (data.extraShort || '');
+  const shortPwd = 'SP' + firstPrefNum + shortQuoteLetter + (data.preferredSymbols || '').toLowerCase() + 
+                  firstDomainLetter + shortAppName + shortEmailName + firstEmailNum + (data.extraShort || '').toLowerCase();
 
-  const firstSymbol = (data.preferredSymbols || '').charAt(0);
+  const firstSymbol = (data.preferredSymbols || '').charAt(0) || '';
   let shortestAppName = '';
   if ((data.accountType === 'app' || data.accountType === 'custom') && data.appName) {
-    shortestAppName = data.appName.trim().charAt(0).toLowerCase();
+    const appFirstWord = data.appName.trim().split(/\s+/)[0] || '';
+    shortestAppName = appFirstWord.charAt(0).toLowerCase();
   }
-  const nameLetter = emailName.replace(/\d/g, '').charAt(0).toLowerCase();
+  const nameLetter = emailName.replace(/\d/g, '').charAt(0) ? emailName.replace(/\d/g, '').charAt(0).toLowerCase() : '';
   const shortestPwd = firstPrefNum + shortQuoteLetter + firstSymbol + firstDomainLetter + 
                      shortestAppName + nameLetter + firstEmailNum + (data.extraShortest || '');
 
