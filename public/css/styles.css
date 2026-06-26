@@ -4520,6 +4520,8 @@ a.docs-item-name:hover {
   border-radius: 10px;
   padding: 12px;
   min-width: 260px;
+  max-height: 350px;
+  overflow-y: auto;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
@@ -4528,6 +4530,21 @@ a.docs-item-name:hover {
   visibility: hidden;
   transform: translateY(-5px);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Scrollbar for exam jumps menu */
+.exam-jumps-menu::-webkit-scrollbar {
+  width: 6px;
+}
+.exam-jumps-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+.exam-jumps-menu::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+.exam-jumps-menu::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .exam-jumps-menu.active {
@@ -4868,6 +4885,64 @@ a.docs-item-name:hover {
 /* ═══════════════════════════════════════════════════════════
    COMPONENT 3: LIST STYLES, MEDIA CONTROLS
    ═══════════════════════════════════════════════════════════ */
+
+/* ─── Custom Modern Toggle Switch ─── */
+.desk-sidebar-toggle {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  margin: 0;
+}
+.desk-sidebar-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.desk-sidebar-toggle .slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  border-radius: 18px;
+  border: 1px solid var(--border);
+}
+.desk-sidebar-toggle .slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--text-muted);
+  transition: .3s cubic-bezier(0.4, 0.0, 0.2, 1);
+  border-radius: 50%;
+}
+.desk-sidebar-toggle input:checked + .slider {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+.desk-sidebar-toggle input:checked + .slider:before {
+  transform: translateX(14px);
+  background-color: #000;
+}
+.desk-sidebar-toggle-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  user-select: none;
+  transition: color 0.2s;
+}
+.desk-sidebar-toggle-wrapper:hover {
+  color: var(--text-primary);
+}
 
 /* List styles in editor and rendered entries */
 .entry-body ul,
@@ -5582,6 +5657,50 @@ a.docs-item-name:hover {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.desk-entry-title-text {
+  min-width: 0;
+}
+
+.desk-entry-card.collapsed .desk-entry-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Desk overflow tooltip */
+.desk-overflow-tooltip {
+  position: fixed;
+  z-index: 10000;
+  max-width: 350px;
+  padding: 8px 14px;
+  background: rgba(20, 20, 20, 0.95);
+  color: #eaeaea;
+  font-size: .82rem;
+  line-height: 1.5;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  word-wrap: break-word;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.desk-overflow-tooltip.visible {
+  opacity: 1;
+}
+
+[data-theme="light"] .desk-overflow-tooltip {
+  background: rgba(250, 247, 240, 0.97);
+  color: #1a1209;
+  border-color: rgba(30, 20, 10, 0.15);
+  box-shadow: 0 8px 24px rgba(30, 20, 10, 0.18);
 }
 
 .desk-entry-chevron {

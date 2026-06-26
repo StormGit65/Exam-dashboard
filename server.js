@@ -922,6 +922,7 @@ app.put('/api/desk/profiles/:id', async (req, res) => {
     const updates = {};
     if (req.body.name) updates.name = req.body.name;
     if (req.body.color) updates.color = req.body.color;
+    if (typeof req.body.showInSidebar === 'boolean') updates.showInSidebar = req.body.showInSidebar;
     await db.collection('deskProfiles').updateOne({ _id: new ObjectId(req.params.id) }, { $set: { ...updates, updatedAt: new Date() } });
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -986,9 +987,14 @@ app.get('/api/desk/goals', async (req, res) => {
     // Exclude goals from archived desk profiles when requested
     if (req.query.excludeArchived === 'true') {
       const archivedProfiles = await db.collection('deskProfiles').find({ deleted: { $ne: true }, archived: true }).project({ _id: 1 }).toArray();
-      const archivedIds = archivedProfiles.map(p => p._id.toString());
-      if (archivedIds.length > 0) {
-        query.profileId = { $nin: archivedIds };
+      const hiddenSidebarProfiles = await db.collection('deskProfiles').find({ deleted: { $ne: true }, showInSidebar: false }).project({ _id: 1 }).toArray();
+      const excludeIds = [
+        ...archivedProfiles.map(p => p._id.toString()),
+        ...hiddenSidebarProfiles.map(p => p._id.toString())
+      ];
+      const uniqueExcludeIds = [...new Set(excludeIds)];
+      if (uniqueExcludeIds.length > 0) {
+        query.profileId = { $nin: uniqueExcludeIds };
       }
     }
 

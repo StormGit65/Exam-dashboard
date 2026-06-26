@@ -1888,8 +1888,8 @@ function renderExamJumpButtons() {
     return 0;
   });
 
-  const activeExams = defaultSorted.filter(e => !e.archived);
-  const archivedExams = defaultSorted.filter(e => e.archived);
+  const activeExams = defaultSorted.filter(e => !e.isArchived);
+  const archivedExams = defaultSorted.filter(e => e.isArchived);
 
   const applyOrder = (exams, order) => {
     if (order && order.length === exams.length) {

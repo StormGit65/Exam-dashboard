@@ -447,6 +447,11 @@ function openEditDeskProfileModal(p) {
         archiveBtn.style.gap = '6px';
       }
     }
+    // Update sidebar checkbox
+    const sidebarCheck = document.getElementById('editDeskProfileSidebarCheck');
+    if (sidebarCheck) {
+      sidebarCheck.checked = p.showInSidebar !== false; // default true
+    }
     modal.classList.add('active');
     document.getElementById('editDeskProfileNameInput').focus();
   }
@@ -463,12 +468,14 @@ async function confirmEditDeskProfile() {
   if (!name || !id) return;
   const swatch = document.querySelector('.edit-desk-profile-color-swatch.selected');
   const color = swatch ? swatch.dataset.color : DESK_COLORS[0];
+  const sidebarCheck = document.getElementById('editDeskProfileSidebarCheck');
+  const showInSidebar = sidebarCheck ? sidebarCheck.checked : true;
   
   try {
     await fetch(`/api/desk/profiles/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, color })
+      body: JSON.stringify({ name, color, showInSidebar })
     });
     await loadDeskProfiles();
     closeEditDeskProfileModal();
@@ -668,6 +675,7 @@ async function loadDeskData() {
   }
 
   updateDeskProfileStats();
+  updateDeskTasksHeader();
 }
 
 // ─── Profile Stats ───
@@ -698,6 +706,44 @@ function updateDeskProfileStats() {
 }
 
 // ─── Tasks ───
+
+function updateDeskTasksHeader() {
+  const pane = document.getElementById('deskTasksPane');
+  if (!pane) return;
+  const header = pane.querySelector('.desk-column-header');
+  if (!header) return;
+
+  const listToRender = deskArchivePanelOpen ? deskArchivedProfiles : deskProfiles;
+  const profile = listToRender.find(p => p._id === deskCurrentProfile);
+  const showInSidebar = profile ? profile.showInSidebar !== false : true;
+
+  header.innerHTML = `
+    <h3>Tasks</h3>
+    <label class="desk-sidebar-toggle-wrapper" title="Show this profile's tasks in sidebar Today's Goals">
+      <div class="desk-sidebar-toggle">
+        <input type="checkbox" ${showInSidebar ? 'checked' : ''} onchange="toggleDeskProfileSidebar(this.checked)">
+        <span class="slider"></span>
+      </div>
+      Sidebar
+    </label>
+  `;
+}
+
+async function toggleDeskProfileSidebar(checked) {
+  if (!deskCurrentProfile) return;
+  try {
+    await fetch('/api/desk/profiles/' + deskCurrentProfile, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ showInSidebar: checked })
+    });
+    const listToRender = deskArchivePanelOpen ? deskArchivedProfiles : deskProfiles;
+    const profile = listToRender.find(p => p._id === deskCurrentProfile);
+    if (profile) profile.showInSidebar = checked;
+    if (typeof loadGoals === 'function') loadGoals();
+  } catch (err) { console.error('Failed to toggle sidebar visibility:', err); }
+}
+
 async function loadDeskTasks() {
   try {
     const res = await fetch(`/api/desk/goals?profileId=${deskCurrentProfile}`);
@@ -946,7 +992,7 @@ function renderDeskEntries() {
       <div class="desk-entry-header" onclick="toggleDeskEntryCard(this.parentElement)" ${cardStyle}>
         <div class="desk-entry-title">
           <svg class="desk-entry-chevron" viewBox="0 0 24 24" width="12" height="12"><path d="M9 18l6-6-6-6" stroke="currentColor" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          ${e.title || 'Untitled'}
+          <span class="desk-entry-title-text">${e.title || 'Untitled'}</span>
         </div>
         <div class="desk-entry-actions">
           <button onclick="event.stopPropagation();editDeskEntry('${e._id}')" title="Edit"><svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button>
@@ -2185,3 +2231,114 @@ if (document.readyState === 'loading') {
   const de = document.getElementById('deskEntryBody');
   if (de) de.addEventListener('keydown', _deskHandleDividerBackspace);
 }
+
+// ─── Overflow Tooltip for Truncated Text ───
+(function() {
+  let tooltipEl = null;
+  let tooltipTimeout = null;
+  let currentTarget = null;
+
+  function getOrCreateTooltip() {
+    if (!tooltipEl) {
+      tooltipEl = document.createElement('div');
+      tooltipEl.className = 'desk-overflow-tooltip';
+      document.body.appendChild(tooltipEl);
+    }
+    return tooltipEl;
+  }
+
+  function showTooltip(target, text) {
+    const tip = getOrCreateTooltip();
+    tip.textContent = text;
+    tip.style.visibility = 'hidden';
+    tip.classList.add('visible');
+
+    requestAnimationFrame(() => {
+      const rect = target.getBoundingClientRect();
+      const tipRect = tip.getBoundingClientRect();
+
+      let left = rect.left;
+      let top = rect.top - tipRect.height - 6;
+
+      if (top < 4) {
+        top = rect.bottom + 6;
+      }
+      if (left + tipRect.width > window.innerWidth - 8) {
+        left = window.innerWidth - tipRect.width - 8;
+      }
+      if (left < 8) left = 8;
+
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+      tip.style.visibility = '';
+    });
+  }
+
+  function hideTooltip() {
+    clearTimeout(tooltipTimeout);
+    tooltipTimeout = null;
+    currentTarget = null;
+    if (tooltipEl) {
+      tooltipEl.classList.remove('visible');
+    }
+  }
+
+  function isTextTruncated(el) {
+    return el.scrollWidth > el.clientWidth + 1;
+  }
+
+  document.addEventListener('mouseover', (e) => {
+    // Task text tooltip
+    const taskText = e.target.closest('.desk-task-text');
+    if (taskText) {
+      if (taskText === currentTarget) return;
+      hideTooltip();
+      if (isTextTruncated(taskText)) {
+        currentTarget = taskText;
+        tooltipTimeout = setTimeout(() => {
+          if (currentTarget !== taskText) return;
+          const fullText = taskText.dataset.tasktext
+            ? decodeURIComponent(taskText.dataset.tasktext)
+            : taskText.textContent.trim();
+          showTooltip(taskText, fullText);
+        }, 400);
+      }
+      return;
+    }
+
+    // Collapsed journal entry title tooltip
+    const titleText = e.target.closest('.desk-entry-title-text');
+    if (titleText) {
+      if (titleText === currentTarget) return;
+      hideTooltip();
+      const card = titleText.closest('.desk-entry-card');
+      if (card && card.classList.contains('collapsed') && isTextTruncated(titleText)) {
+        currentTarget = titleText;
+        tooltipTimeout = setTimeout(() => {
+          if (currentTarget !== titleText) return;
+          showTooltip(titleText, titleText.textContent.trim());
+        }, 400);
+      }
+      return;
+    }
+
+    // Moved away from any target
+    if (currentTarget) {
+      hideTooltip();
+    }
+  });
+
+  document.addEventListener('mouseout', (e) => {
+    if (!currentTarget) return;
+    const taskText = e.target.closest('.desk-task-text');
+    const titleText = e.target.closest('.desk-entry-title-text');
+    const matchedTarget = (taskText === currentTarget) ? taskText
+      : (titleText === currentTarget) ? titleText : null;
+
+    if (matchedTarget) {
+      const related = e.relatedTarget;
+      if (related && matchedTarget.contains(related)) return;
+      hideTooltip();
+    }
+  });
+})();
