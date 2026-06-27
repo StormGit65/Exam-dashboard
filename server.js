@@ -1561,8 +1561,54 @@ process.on('SIGHUP', () => gracefulShutdown('SIGHUP'));
 
 // ─── START ──────────────────────────────────────────────────
 
-connectDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Kaizen running at http://localhost:${PORT}`);
+const readline = require('readline');
+const { exec } = require('child_process');
+
+function openBrowser(port) {
+  const url = `http://localhost:${port}`;
+  const platform = process.platform;
+  let command;
+  if (platform === 'win32') {
+    command = `start ${url}`;
+  } else if (platform === 'darwin') {
+    command = `open ${url}`;
+  } else {
+    command = `xdg-open ${url}`;
+  }
+  exec(command, () => {});
+}
+
+function startServer(port) {
+  const currentPort = parseInt(port, 10);
+  const server = app.listen(currentPort, () => {
+    console.log(`\n  Kaizen is running at http://localhost:${currentPort}`);
+    console.log(`  Close this terminal or press Ctrl+C to stop the server.\n`);
+    setTimeout(() => openBrowser(currentPort), 1000);
   });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`\n  ⚠ Port ${currentPort} is already occupied.`);
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+      rl.question(`  Do you want to use another port? (y/n): `, (answer) => {
+        rl.close();
+        if (answer.trim().toLowerCase() === 'y') {
+          startServer(currentPort + 1);
+        } else {
+          console.log('\n  Exiting...');
+          process.exit(1);
+        }
+      });
+    } else {
+      console.error(err);
+      process.exit(1);
+    }
+  });
+}
+
+connectDB().then(() => {
+  startServer(PORT);
 });
