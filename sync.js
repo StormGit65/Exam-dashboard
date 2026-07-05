@@ -85,21 +85,17 @@ async function setLastUpdated(db) {
 
 /**
  * Copy all data collections from source to target database.
- * Drops existing data in target before copying.
+ * Uses safe upserts instead of dropping target collections.
  */
 async function copyCollections(sourceDb, targetDb) {
   for (const col of COLLECTIONS) {
     const docs = await sourceDb.collection(col).find({}).toArray();
     
-    // Drop target collection if it exists
-    try {
-      await targetDb.collection(col).drop();
-    } catch {
-      // Collection might not exist — that's fine
-    }
-    
-    if (docs.length > 0) {
-      await targetDb.collection(col).insertMany(docs);
+    for (const doc of docs) {
+      const { _id, ...docWithoutId } = doc;
+      try {
+        await targetDb.collection(col).replaceOne({ _id }, doc, { upsert: true });
+      } catch {}
     }
   }
 }
@@ -201,12 +197,13 @@ async function restoreSnapshot(snapshotName, targetDb, client) {
     throw new Error(`Snapshot "${snapshotName}" is empty or does not exist`);
   }
 
-  // Copy all data from snapshot to target
+  // Copy all data from snapshot to target (safe upserts, no drops)
   for (const col of COLLECTIONS) {
     const docs = await snapDb.collection(col).find({}).toArray();
-    try { await targetDb.collection(col).drop(); } catch {}
-    if (docs.length > 0) {
-      await targetDb.collection(col).insertMany(docs);
+    for (const doc of docs) {
+      try {
+        await targetDb.collection(col).replaceOne({ _id: doc._id }, doc, { upsert: true });
+      } catch {}
     }
   }
 
@@ -224,14 +221,27 @@ async function restoreSnapshot(snapshotName, targetDb, client) {
 }
 
 /**
+ * Get effective timestamp for a document (updatedAt → createdAt → epoch).
+ */
+function getDocTimestamp(doc) {
+  if (doc.updatedAt) return new Date(doc.updatedAt).getTime();
+  if (doc.createdAt) return new Date(doc.createdAt).getTime();
+  return 0;
+}
+
+/**
  * Merge all data collections between local and atlas databases.
- * Uses Document-Level Last-Write-Wins based on updatedAt.
+ * Uses Document-Level Last-Write-Wins based on updatedAt (with createdAt fallback).
+ * 
+ * SAFE: Uses individual upserts instead of drop+insertMany.
+ * Never deletes documents — only adds or updates.
  */
 async function mergeCollections(localDb, atlasDb) {
   for (const col of COLLECTIONS) {
     const localDocs = await localDb.collection(col).find({}).toArray();
     const atlasDocs = await atlasDb.collection(col).find({}).toArray();
 
+    // Build merged map: union of both sides, last-write-wins on conflicts
     const mergedDocsMap = new Map();
 
     for (const doc of localDocs) {
@@ -241,10 +251,12 @@ async function mergeCollections(localDb, atlasDb) {
     for (const doc of atlasDocs) {
       const existing = mergedDocsMap.get(doc._id.toString());
       if (!existing) {
+        // Document only exists on Atlas — include it
         mergedDocsMap.set(doc._id.toString(), doc);
       } else {
-        const existingTime = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
-        const newTime = doc.updatedAt ? new Date(doc.updatedAt).getTime() : 0;
+        // Conflict: pick the one with the newer timestamp
+        const existingTime = getDocTimestamp(existing);
+        const newTime = getDocTimestamp(doc);
         if (newTime > existingTime) {
           mergedDocsMap.set(doc._id.toString(), doc);
         }
@@ -253,12 +265,35 @@ async function mergeCollections(localDb, atlasDb) {
 
     const mergedDocs = Array.from(mergedDocsMap.values());
 
-    try { await localDb.collection(col).drop(); } catch {}
-    try { await atlasDb.collection(col).drop(); } catch {}
-    
-    if (mergedDocs.length > 0) {
-      await localDb.collection(col).insertMany(mergedDocs);
-      await atlasDb.collection(col).insertMany(mergedDocs);
+    // Upsert each document into both databases (safe — no drops)
+    for (const doc of mergedDocs) {
+      const { _id, ...docWithoutId } = doc;
+      const upsertOp = { $set: docWithoutId, $setOnInsert: { _id } };
+
+      try {
+        await localDb.collection(col).updateOne(
+          { _id },
+          upsertOp,
+          { upsert: true }
+        );
+      } catch (err) {
+        // Fallback: try replaceOne for documents with complex _id types
+        try {
+          await localDb.collection(col).replaceOne({ _id }, doc, { upsert: true });
+        } catch {}
+      }
+
+      try {
+        await atlasDb.collection(col).updateOne(
+          { _id },
+          upsertOp,
+          { upsert: true }
+        );
+      } catch (err) {
+        try {
+          await atlasDb.collection(col).replaceOne({ _id }, doc, { upsert: true });
+        } catch {}
+      }
     }
   }
 }

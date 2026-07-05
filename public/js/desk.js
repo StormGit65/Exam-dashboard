@@ -180,22 +180,39 @@ function toggleDeskJournalFullscreen() {
 
 // ─── Profile CRUD ───
 async function loadDeskProfiles() {
+  let fetchFailed = false;
   try {
     const res = await fetch('/api/desk/profiles');
-    deskProfiles = await res.json();
-  } catch { deskProfiles = []; }
+    if (!res.ok) {
+      fetchFailed = true;
+      deskProfiles = [];
+    } else {
+      deskProfiles = await res.json();
+      if (!Array.isArray(deskProfiles)) deskProfiles = []; // Safety check
+    }
+  } catch { 
+    fetchFailed = true;
+    deskProfiles = []; 
+  }
 
-  // Ensure at least "General" profile exists
-  if (deskProfiles.length === 0) {
+  // Ensure at least "General" profile exists, but ONLY if we successfully fetched and there are none
+  if (!fetchFailed && deskProfiles.length === 0) {
     await createDeskProfile('General', DESK_COLORS[0]);
     return loadDeskProfiles();
   }
 
+  if (fetchFailed) {
+    // Stop here if the server is unreachable or returning errors
+    return;
+  }
+
   renderDeskTabBar();
   if (!deskCurrentProfile || !deskProfiles.find(p => p._id === deskCurrentProfile)) {
-    deskCurrentProfile = deskProfiles[0]._id;
+    deskCurrentProfile = deskProfiles.length > 0 ? deskProfiles[0]._id : null;
   }
-  switchDeskProfile(deskCurrentProfile);
+  if (deskCurrentProfile) {
+    switchDeskProfile(deskCurrentProfile);
+  }
 }
 
 let deskTabMode = 'scroll';

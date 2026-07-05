@@ -115,8 +115,64 @@ async function connectDB() {
   // Run startup sync
   await sync.syncOnStartup(localDb, atlasDb, mode, localClient, atlasClient, DB_NAME);
   
+  // Create a local JSON backup after sync is complete
+  await createStartupBackup(db);
+  
   console.log(`\n  ◉ Primary database: ${mode === 'ATLAS_ONLY' ? 'Atlas' : 'Local'}`);
   console.log('└────────────────────────────────────┘\n');
+}
+
+// ─── Startup JSON Backup ────────────────────────────────────
+// Creates a JSON backup of all collections to the backup/ folder
+// on every server start. Keeps the 10 most recent backups.
+const BACKUP_DIR = path.join(__dirname, 'backup');
+const MAX_BACKUPS = 10;
+
+async function createStartupBackup(sourceDb) {
+  try {
+    if (!fs.existsSync(BACKUP_DIR)) fs.mkdirSync(BACKUP_DIR, { recursive: true });
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').slice(0, 19);
+    const backupFile = path.join(BACKUP_DIR, `${DB_NAME}_${timestamp}.json`);
+
+    const backup = { 
+      dbName: DB_NAME,
+      createdAt: new Date().toISOString(),
+      collections: {}
+    };
+
+    let totalDocs = 0;
+    for (const col of sync.COLLECTIONS) {
+      const docs = await sourceDb.collection(col).find({}).toArray();
+      backup.collections[col] = docs;
+      totalDocs += docs.length;
+    }
+
+    // Also backup sync meta
+    const meta = await sourceDb.collection('_syncMeta').findOne({ _id: 'sync' });
+    if (meta) backup.syncMeta = meta;
+
+    fs.writeFileSync(backupFile, JSON.stringify(backup, null, 2));
+    const sizeKB = (fs.statSync(backupFile).size / 1024).toFixed(0);
+    console.log(`\n  💾 Startup backup: ${path.basename(backupFile)} (${totalDocs} docs, ${sizeKB} KB)`);
+
+    // Prune old JSON backups (keep only MAX_BACKUPS most recent)
+    const backupFiles = fs.readdirSync(BACKUP_DIR)
+      .filter(f => f.startsWith(DB_NAME + '_') && f.endsWith('.json'))
+      .sort()
+      .reverse(); // newest first
+
+    if (backupFiles.length > MAX_BACKUPS) {
+      const toDelete = backupFiles.slice(MAX_BACKUPS);
+      for (const file of toDelete) {
+        fs.unlinkSync(path.join(BACKUP_DIR, file));
+        console.log(`  🗑️  Pruned old backup: ${file}`);
+      }
+    }
+  } catch (err) {
+    // Backup failure should never prevent the server from starting
+    console.error(`  ⚠ Startup backup failed: ${err.message}`);
+  }
 }
 
 // ─── EXAM ROUTES ────────────────────────────────────────────
